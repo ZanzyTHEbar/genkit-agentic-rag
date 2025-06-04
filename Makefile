@@ -2,7 +2,7 @@
 BUILD_FLAGS := -v
 
 # Binary name
-BINARY_NAME = file4you-
+BINARY_NAME = github.com/ZanzyTHEbar/genkithandler-
 #BINARY_NAME := $(BINARY_NAME)$(shell date +'%Y%m%d%H%M%S')-
 BINARY_PATH_PREFIX := ./bin
 
@@ -31,13 +31,13 @@ else
 BINARY_PATH := $(BINARY_PATH_PREFIX)$(BINARY_PATH)/$(BINARY_NAME)
 endif
 
-MODULE_PATH := cmd/app/file4you.go
+MODULE_PATH := cmd/app/github.com/ZanzyTHEbar/genkithandler.go
 
 # Default target
 .DEFAULT_GOAL := build
 
-DEFAULT_DB_PATH = ~/.config/file4you/central.db
-TEMP_PATHS =  /tmp/file4you_test
+DEFAULT_DB_PATH = ~/.config/github.com/ZanzyTHEbar/genkithandler/central.db
+TEMP_PATHS =  /tmp/github.com/ZanzyTHEbar/genkithandler_test
 
 all: build
 
@@ -71,7 +71,7 @@ run:
 
 bin:
 	@echo "Running binary..."
-	@./bin/file4you-linuxamd64/./file4you
+	@./bin/github.com/ZanzyTHEbar/genkithandler-linuxamd64/./github.com/ZanzyTHEbar/genkithandler
 
 # Test the application
 test:

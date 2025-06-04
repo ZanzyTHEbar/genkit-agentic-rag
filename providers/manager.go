@@ -5,8 +5,7 @@ import (
 	"context"
 	"log/slog"
 
-	"file4you/internal/config"
-	"file4you/internal/genkithandler/errors"
+	"github.com/ZanzyTHEbar/genkithandler/errors"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"

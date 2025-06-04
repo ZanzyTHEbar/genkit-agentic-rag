@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"file4you/internal/db"
-	"file4you/internal/deskfs"
-
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/google/uuid"

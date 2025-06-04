@@ -9,7 +9,7 @@ import (
 	"strings"
 	"text/template"
 
-	"file4you/internal/filesystem/trees"
+	"github.com/ZanzyTHEbar/genkithandlerfilesystem/trees"
 )
 
 // Prompt represents a loaded prompt template.
