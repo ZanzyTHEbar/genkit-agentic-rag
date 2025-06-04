@@ -1,0 +1,37 @@
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build
+build/
+bin/
+
+# Dependency directories
+vendor/
+
+# Environment variables and configuration files
+
+.env
+
+# Extras
+*.DS_Store
+*.bak
+*.swp
+*.tmp
+*tmp
+*.log
+*.out
+*.gz
+*.zip
+*.tar
+*.rar
+*.7z
+*.apk
+/test-proj
+/extras
+.rs-old/
+
+.file4you
