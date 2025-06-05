@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-
-	"github.com/ZanzyTHEbar/genkithandlerfilesystem/trees"
 )
 
 // Prompt represents a loaded prompt template.
@@ -125,51 +123,3 @@ func RenderPrompt(prompt Prompt, context PromptContext) (string, error) {
 	return buf.String(), nil
 }
 
-// CreateFileOrganizationContext creates a prompt context from file metadata
-func CreateFileOrganizationContext(files []trees.FileMetadata, directoryPath string, userContext string) PromptContext {
-	context := PromptContext{
-		Files:         make([]FileInfo, 0, len(files)),
-		DirectoryPath: directoryPath,
-		FileCount:     len(files),
-		FileTypes:     make(map[string]int),
-		TotalSize:     0,
-		Metadata:      make(map[string]string),
-		UserContext:   userContext,
-	}
-
-	for _, file := range files {
-		// Extract file name from path
-		fileName := filepath.Base(file.FilePath)
-
-		// Extract extension
-		extension := filepath.Ext(fileName)
-		if extension != "" && len(extension) > 1 {
-			extension = extension[1:] // Remove the dot
-		}
-
-		fileInfo := FileInfo{
-			Name:      fileName,
-			Path:      file.FilePath,
-			Size:      file.Size,
-			Extension: extension,
-			IsDir:     file.IsDir,
-			ModTime:   file.ModTime.Format("2006-01-02 15:04:05"),
-			Checksum:  file.Checksum,
-			Metadata:  make(map[string]interface{}),
-		}
-
-		context.Files = append(context.Files, fileInfo)
-		context.TotalSize += file.Size
-
-		// Count file types by extension
-		if !file.IsDir && extension != "" {
-			context.FileTypes[extension]++
-		} else if file.IsDir {
-			context.FileTypes["directory"]++
-		} else {
-			context.FileTypes["unknown"]++
-		}
-	}
-
-	return context
-}

@@ -1,4 +1,3 @@
-// Package providers implements provider management and coordination
 package providers
 
 import (

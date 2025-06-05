@@ -458,41 +458,34 @@ func ExecuteToolChain(ctx context.Context, g *genkit.Genkit, request *ToolChainR
 }
 
 // RegisterCoreTools registers core tools using enhanced tool definition with validation
-func RegisterCoreTools(g *genkit.Genkit, dfs *deskfs.DesktopFS, cdb *db.CentralDBProvider) error {
+func RegisterCoreTools(g *genkit.Genkit, cdb *db.CentralDBProvider) error {
 	// performBackup tool with enhanced error handling
 	backupToolHandler := func(ctx *ai.ToolContext, input BackupToolInput) (BackupToolOutput, error) {
-		if dfs == nil || cdb == nil {
-			return BackupToolOutput{}, NewGenkitError(ErrorCodeInvalidInput, "DeskFS or CentralDB provider is nil in backup tool")
+		if cdb == nil {
+			return BackupToolOutput{}, NewGenkitError(ErrorCodeInvalidInput, "central database provider is nil")
 		}
 
-		var deskFSPath, centralDBPath string
-		var err1, err2 error
+		var centralDBPath string
 
-		// Perform backups with timeout handling
-		deskFSPath, err1 = dfs.Backup()
-		centralDBPath, err2 = cdb.Backup()
+		centralDBPath, err := cdb.Backup()
 
 		// Determine success and create appropriate response
-		if err1 != nil && err2 != nil {
-			msg := fmt.Sprintf("Both backups failed: DeskFS: %v, CentralDB: %v", err1, err2)
+		if err != nil {
+			msg := fmt.Sprintf("Backup failed: CentralDB: %v", err)
 			return BackupToolOutput{
-				DeskFSBackupPath:    deskFSPath,
 				CentralDBBackupPath: centralDBPath,
 				Message:             msg,
-			}, NewGenkitError(ErrorCodeBackupFailed, msg).WithCause(err1).WithContext("central_db_error", err2.Error())
+			}, NewGenkitError(ErrorCodeBackupFailed, msg).WithCause(err).WithContext("central_db_error", err2.Error())
 		}
 
 		var msg string
-		if err1 != nil {
-			msg = fmt.Sprintf("DeskFS backup failed: %v. CentralDB backup succeeded at: %s", err1, centralDBPath)
-		} else if err2 != nil {
-			msg = fmt.Sprintf("CentralDB backup failed: %v. DeskFS backup succeeded at: %s", err2, deskFSPath)
+		if err != nil {
+			msg = fmt.Sprintf("DeskFS backup failed: %v", err)
 		} else {
-			msg = fmt.Sprintf("Both backups succeeded: DeskFS at %s, CentralDB at %s", deskFSPath, centralDBPath)
+			msg = "Backup completed successfully"
 		}
 
 		return BackupToolOutput{
-			DeskFSBackupPath:    deskFSPath,
 			CentralDBBackupPath: centralDBPath,
 			Message:             msg,
 		}, nil
@@ -510,6 +503,7 @@ func RegisterCoreTools(g *genkit.Genkit, dfs *deskfs.DesktopFS, cdb *db.CentralD
 			"implemented": "false",
 		}, nil
 	}
+
 	if _, err := DefineTool(g, "organizeDirectory", "Organizes a directory using AI-powered file categorization and structure optimization.", organizeHandler); err != nil {
 		return NewGenkitError(ErrorCodeToolRegistrationFailed, "failed to register organizeDirectory tool").WithCause(err)
 	}
@@ -525,6 +519,5 @@ func RegisterCoreTools(g *genkit.Genkit, dfs *deskfs.DesktopFS, cdb *db.CentralD
 	if _, err := DefineTool(g, "manageWorkspace", "Manages and configures workspaces with AI-powered optimization and automation.", workspaceHandler); err != nil {
 		return NewGenkitError(ErrorCodeToolRegistrationFailed, "failed to register manageWorkspace tool").WithCause(err)
 	}
-
 	return nil
 }

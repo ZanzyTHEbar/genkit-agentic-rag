@@ -1,4 +1,3 @@
-// Package genkithandler provides a simplified interface for integrating with Genkit.
 package genkithandler
 
 import (
