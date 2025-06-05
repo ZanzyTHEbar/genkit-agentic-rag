@@ -1,37 +1,43 @@
-// Package errors provides error handling utilities for the Genkit handler.
-package errors
+package types
 
 import (
 	"errors"
 	"fmt"
 )
 
-// Error types for categorization and handling.
-var (
-	// ErrNotFound indicates that a requested resource was not found.
-	ErrNotFound = errors.New("not found")
+// ErrorCode represents specific error types
+type ErrorCode string
 
-	// ErrInvalidInput indicates that the input was invalid.
-	ErrInvalidInput = errors.New("invalid input")
-
-	// ErrUnauthorized indicates that the request was not authorized.
-	ErrUnauthorized = errors.New("unauthorized")
-
-	// ErrForbidden indicates that the request is forbidden.
-	ErrForbidden = errors.New("forbidden")
-
-	// ErrTimeout indicates that a request timed out.
-	ErrTimeout = errors.New("timeout")
-
-	// ErrRateLimit indicates that a rate limit was exceeded.
-	ErrRateLimit = errors.New("rate limit exceeded")
-
-	// ErrInternal indicates an internal error.
-	ErrInternal = errors.New("internal error")
-
-	// ErrUnavailable indicates that a service is unavailable.
-	ErrUnavailable = errors.New("service unavailable")
+const (
+	ErrorCodeInvalidInput           ErrorCode = "INVALID_INPUT"
+	ErrorCodeProviderError          ErrorCode = "PROVIDER_ERROR"
+	ErrorCodeToolError              ErrorCode = "TOOL_ERROR"
+	ErrorCodeValidationError        ErrorCode = "VALIDATION_ERROR"
+	ErrorCodeAuthError              ErrorCode = "AUTH_ERROR"
+	ErrorCodeRateLimit              ErrorCode = "RATE_LIMIT"
+	ErrorCodeTimeout                ErrorCode = "TIMEOUT"
+	ErrorCodeInternalError          ErrorCode = "INTERNAL_ERROR"
+	ErrorCodeSchemaError            ErrorCode = "SCHEMA_ERROR"
+	ErrorCodeContextError           ErrorCode = "CONTEXT_ERROR"
+	ErrorCodeToolAlreadyExists      ErrorCode = "TOOL_ALREADY_EXISTS"
+	ErrorCodeToolExecutionFailed    ErrorCode = "TOOL_EXECUTION_FAILED"
+	ErrorCodeToolNotFound           ErrorCode = "TOOL_NOT_FOUND"
+	ErrorCodeSerialization          ErrorCode = "SERIALIZATION_ERROR"
+	ErrorCodeTypeConversion         ErrorCode = "TYPE_CONVERSION_ERROR"
+	ErrorCodeDependencyError        ErrorCode = "DEPENDENCY_ERROR"
+	ErrorCodeBackupFailed           ErrorCode = "BACKUP_FAILED"
+	ErrorCodeToolRegistrationFailed ErrorCode = "TOOL_REGISTRATION_FAILED"
 )
+
+// isRetryableError determines if an error type is retryable
+func isRetryableError(code ErrorCode) bool {
+	switch code {
+	case ErrorCodeRateLimit, ErrorCodeTimeout, ErrorCodeProviderError:
+		return true
+	default:
+		return false
+	}
+}
 
 // GenkitError is a custom error type for Genkit handler errors.
 type GenkitError struct {
@@ -214,16 +220,15 @@ func NewFlowNotFoundError(flowName string, cause error) error {
 	return err
 }
 
-// NewToolNotFoundError creates a new error for when a tool is not found.
-// (Adding this proactively as it's a common pattern)
-func NewToolNotFoundError(toolName string, cause error) error {
+func NewToolNotFoundError(toolName string, cause string) error {
+	causeErr := errors.New(cause)
 	err := &GenkitError{
-		Err:     cause,
+		Err:     causeErr,
 		Code:    "TOOL_NOT_FOUND",
 		Message: fmt.Sprintf("tool %s not found", toolName),
 	}
-	if cause != nil {
-		err.Message = fmt.Sprintf("tool %s not found: %v", toolName, cause)
+	if causeErr != nil {
+		err.Message = fmt.Sprintf("tool %s not found: %v", toolName, causeErr)
 	}
 	return err
 }

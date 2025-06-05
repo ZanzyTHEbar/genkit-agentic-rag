@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ZanzyTHEbar/genkithandler"
 	"github.com/ZanzyTHEbar/genkithandler/errors"
+	"github.com/ZanzyTHEbar/genkithandler/types"
 
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -22,7 +24,7 @@ type RetryConfig struct {
 }
 
 type GoogleAIProviderConfig struct {
-	pluginConfig config.GenkitPlugin
+	pluginConfig types.GenkitPlugin
 	// MaxOutputTokens is the maximum number of tokens to generate.
 	// MaxOutputTokens int `json:"maxOutputTokens,omitempty"`
 	// StopSequences is the list of sequences where the model will stop generating further tokens.
@@ -54,7 +56,7 @@ type GoogleAIProvider struct {
 }
 
 // NewGoogleAIProvider creates a new Google AI provider instance
-func NewGoogleAIProvider(pluginCfg config.GenkitPlugin) *GoogleAIProvider {
+func NewGoogleAIProvider(pluginCfg types.GenkitPlugin) *GoogleAIProvider {
 	// Default retry configuration
 	retryConfig := RetryConfig{
 		MaxRetries: 3,
@@ -297,7 +299,7 @@ func (p *GoogleAIProvider) CallTool(ctx context.Context, g *genkit.Genkit, toolN
 			Result:   nil,
 			Success:  false,
 			Duration: time.Since(startTime),
-			Error:    "tool name cannot be empty",
+			Error:    genkithandler.NewToolNotFoundError(toolName, "tool name cannot be empty"),
 		}, fmt.Errorf("tool name cannot be empty")
 	}
 

@@ -1,5 +1,4 @@
-// Package genkithandler provides integration with the genkit AI platform.
-package genkithandler
+package types
 
 import (
 	"context"
@@ -132,100 +131,6 @@ type AIProvider interface {
 	Initialize(config map[string]interface{}) error
 }
 
-// Enhanced Error Types
-
-// ErrorCode represents specific error types
-type ErrorCode string
-
-const (
-	ErrorCodeInvalidInput           ErrorCode = "INVALID_INPUT"
-	ErrorCodeProviderError          ErrorCode = "PROVIDER_ERROR"
-	ErrorCodeToolError              ErrorCode = "TOOL_ERROR"
-	ErrorCodeValidationError        ErrorCode = "VALIDATION_ERROR"
-	ErrorCodeAuthError              ErrorCode = "AUTH_ERROR"
-	ErrorCodeRateLimit              ErrorCode = "RATE_LIMIT"
-	ErrorCodeTimeout                ErrorCode = "TIMEOUT"
-	ErrorCodeInternalError          ErrorCode = "INTERNAL_ERROR"
-	ErrorCodeSchemaError            ErrorCode = "SCHEMA_ERROR"
-	ErrorCodeContextError           ErrorCode = "CONTEXT_ERROR"
-	ErrorCodeToolAlreadyExists      ErrorCode = "TOOL_ALREADY_EXISTS"
-	ErrorCodeToolExecutionFailed    ErrorCode = "TOOL_EXECUTION_FAILED"
-	ErrorCodeToolNotFound           ErrorCode = "TOOL_NOT_FOUND"
-	ErrorCodeSerialization          ErrorCode = "SERIALIZATION_ERROR"
-	ErrorCodeTypeConversion         ErrorCode = "TYPE_CONVERSION_ERROR"
-	ErrorCodeDependencyError        ErrorCode = "DEPENDENCY_ERROR"
-	ErrorCodeBackupFailed           ErrorCode = "BACKUP_FAILED"
-	ErrorCodeToolRegistrationFailed ErrorCode = "TOOL_REGISTRATION_FAILED"
-)
-
-// GenkitError represents an enhanced error with context
-type GenkitError struct {
-	Code      ErrorCode              `json:"code"`
-	Message   string                 `json:"message"`
-	Context   map[string]interface{} `json:"context,omitempty"`
-	Provider  string                 `json:"provider,omitempty"`
-	RequestID string                 `json:"request_id,omitempty"`
-	Retryable bool                   `json:"retryable"`
-	Timestamp time.Time              `json:"timestamp"`
-	Cause     error                  `json:"cause,omitempty"`
-}
-
-func (e *GenkitError) Error() string {
-	return fmt.Sprintf("[%s] %s (Provider: %s, RequestID: %s)", e.Code, e.Message, e.Provider, e.RequestID)
-}
-
-func (e *GenkitError) Unwrap() error {
-	return e.Cause
-}
-
-// NewGenkitError creates a new GenkitError
-func NewGenkitError(code ErrorCode, message string) *GenkitError {
-	return &GenkitError{
-		Code:      code,
-		Message:   message,
-		Context:   make(map[string]interface{}),
-		Retryable: isRetryableError(code),
-		Timestamp: time.Now(),
-	}
-}
-
-// WithContext adds context to the error
-func (e *GenkitError) WithContext(key string, value interface{}) *GenkitError {
-	if e.Context == nil {
-		e.Context = make(map[string]interface{})
-	}
-	e.Context[key] = value
-	return e
-}
-
-// WithProvider sets the provider information
-func (e *GenkitError) WithProvider(provider string) *GenkitError {
-	e.Provider = provider
-	return e
-}
-
-// WithRequestID sets the request ID
-func (e *GenkitError) WithRequestID(requestID string) *GenkitError {
-	e.RequestID = requestID
-	return e
-}
-
-// WithCause sets the underlying cause
-func (e *GenkitError) WithCause(cause error) *GenkitError {
-	e.Cause = cause
-	return e
-}
-
-// isRetryableError determines if an error type is retryable
-func isRetryableError(code ErrorCode) bool {
-	switch code {
-	case ErrorCodeRateLimit, ErrorCodeTimeout, ErrorCodeProviderError:
-		return true
-	default:
-		return false
-	}
-}
-
 // BackupToolInput defines the input for the backup tool.
 // For now, it's empty, implying a full backup. It can be extended with options.
 type BackupToolInput struct {
@@ -292,50 +197,4 @@ func indexOf(s, substr string) int {
 // SessionID generates a unique session identifier.
 func SessionID() string {
 	return uuid.New().String()
-}
-
-// AI-powered file organization types
-
-// FileOrganizationResult represents the result of AI-powered file organization
-type FileOrganizationResult struct {
-	SuggestedActions []OrganizationAction `json:"suggested_actions"`
-	Confidence       float64              `json:"confidence"`
-	Reasoning        string               `json:"reasoning"`
-}
-
-// OrganizationAction represents a specific file organization action
-type OrganizationAction struct {
-	Action     string   `json:"action"` // "move", "rename", "create_folder", "tag"
-	FileName   string   `json:"file_name"`
-	SourcePath string   `json:"source_path"`
-	TargetPath string   `json:"target_path"`
-	NewName    string   `json:"new_name,omitempty"`
-	FolderName string   `json:"folder_name,omitempty"`
-	Tags       []string `json:"tags,omitempty"`
-	Confidence float64  `json:"confidence"`
-	Reasoning  string   `json:"reasoning"`
-}
-
-// FileCategorization represents the result of AI-powered file categorization
-type FileCategorization struct {
-	Category    string   `json:"category"`
-	SubCategory string   `json:"sub_category,omitempty"`
-	Tags        []string `json:"tags"`
-	Confidence  float64  `json:"confidence"`
-	Reasoning   string   `json:"reasoning"`
-}
-
-// DuplicateDetectionResult represents the result of AI-powered duplicate detection
-type DuplicateDetectionResult struct {
-	DuplicateGroups []DuplicateGroup `json:"duplicate_groups"`
-	Confidence      float64          `json:"confidence"`
-	Reasoning       string           `json:"reasoning"`
-}
-
-// DuplicateGroup represents a group of duplicate files
-type DuplicateGroup struct {
-	Files      []string `json:"files"`
-	Similarity float64  `json:"similarity"`
-	Type       string   `json:"type"` // "exact", "content_similar", "name_similar"
-	Reasoning  string   `json:"reasoning"`
 }

@@ -1,10 +1,6 @@
 // Package genkithandler provides a simplified interface for integrating with Genkit.
 package genkithandler
 
-// TODO: Add method to register custom service actions and tools
-// TODO: Add ability to register custom AI Response Parsing Functions
-// TODO: Add ability to load and construct custom prompts dynamically using Genkit dotprompt support
-
 import (
 	"context"
 	"fmt"
@@ -17,11 +13,22 @@ import (
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 )
 
+// DBProvider interface to avoid import cycles
+type DBProvider interface {
+	Connect(dsn string) error
+	Close() error
+	InitSchema() error
+	Backup() (string, error)
+}
+
+// Global configuration variable
+var GlobalAppConfig *AppConfig
+
 // Service holds an initialized Genkit instance and provides methods
 // for interacting with Genkit functionalities.
 type Service struct {
 	g               *genkit.Genkit
-	cfg             GenkitHandlerConfig
+	cfg             AppConfig
 	promptsDir      string
 	loadedPrompts   map[string]Prompt
 	providerManager *providers.Manager
@@ -29,9 +36,13 @@ type Service struct {
 
 // NewService initializes a new Genkit instance and returns a Service.
 // It uses the globally loaded AppConfig.
-func NewService(ctx context.Context, cdb *db.CentralDBProvider) (*Service, error) {
+func NewService(ctx context.Context, dbProvider DBProvider) (*Service, error) {
 
-	appCfg := config.AppConfig
+	if GlobalAppConfig == nil {
+		return nil, fmt.Errorf("GlobalAppConfig not initialized - call LoadConfig first")
+	}
+
+	appCfg := GlobalAppConfig
 
 	// Load prompts
 	prompts, err := LoadPrompts(appCfg.Genkit.Prompts.Directory)
