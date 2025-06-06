@@ -6,7 +6,6 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -689,27 +688,6 @@ func (t *TursoVectorStore) buildWhereClause(filters map[string]interface{}) (str
 	return "WHERE " + strings.Join(conditions, " AND "), args
 }
 
-// cosineSimilarity calculates cosine similarity between two vectors
-func cosineSimilarity(a, b []float32) float32 {
-	if len(a) != len(b) {
-		return 0.0
-	}
-
-	var dotProduct, normA, normB float64
-
-	for i := range a {
-		dotProduct += float64(a[i]) * float64(b[i])
-		normA += float64(a[i]) * float64(a[i])
-		normB += float64(b[i]) * float64(b[i])
-	}
-
-	if normA == 0.0 || normB == 0.0 {
-		return 0.0
-	}
-
-	return float32(dotProduct / (math.Sqrt(normA) * math.Sqrt(normB)))
-}
-
 // parseSearchResults parses search results from SQL rows
 func (t *TursoVectorStore) parseSearchResults(rows *sql.Rows, threshold float32, isDistance bool) ([]domain.Document, []float32, error) {
 	var documents []domain.Document
@@ -750,6 +728,7 @@ func (t *TursoVectorStore) parseSearchResults(rows *sql.Rows, threshold float32,
 		// Extract embedding from F32_BLOB using vector_extract
 		// For now, we'll store the raw blob and extract when needed
 		doc.Embedding = make([]float32, t.embedDimension)
+
 		// TODO: Implement proper F32_BLOB extraction if needed for the embedding field
 
 		// Convert distance to similarity score (cosine distance: 0=identical, 2=opposite)
