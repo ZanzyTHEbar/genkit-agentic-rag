@@ -1,81 +1,62 @@
-# Go build flags
+# Go Library Makefile
+
+# Go module path
+MODULE_PATH := github.com/ZanzyTHEbar/genkithandler
+
+# Test settings
+TEST_TIMEOUT := 30s
+COVERAGE_OUT := coverage.out
+
+# Build flags for library development
 BUILD_FLAGS := -v
 
-# Binary name
-BINARY_NAME = github.com/ZanzyTHEbar/genkithandler-
-#BINARY_NAME := $(BINARY_NAME)$(shell date +'%Y%m%d%H%M%S')-
-BINARY_PATH_PREFIX := ./bin
-
-# Detect the operating system
-ifeq ($(OS),Windows_NT)
-BINARY_NAME := $(BINARY_NAME)windows.exe
-BINARY_PATH := $(BINARY_PATH_PREFIX)$(BINARY_PATH)\$(BINARY_NAME)
-else
-    UNAME_S := $(shell uname -s)
-    ifeq ($(UNAME_S),Linux)
-	BINARY_NAME := $(BINARY_NAME)linux
-    endif
-    ifeq ($(UNAME_S),Darwin)
-	BINARY_NAME := $(BINARY_NAME)darwin
-    endif
-    UNAME_P := $(shell uname -p)
-    ifeq ($(UNAME_P),x86_64)
-	BINARY_NAME := $(BINARY_NAME)amd64
-    endif
-    ifneq ($(filter %86,$(UNAME_P)),)
-	BINARY_NAME := $(BINARY_NAME)386
-    endif
-    ifneq ($(filter arm%,$(UNAME_P)),)
-	BINARY_NAME := $(BINARY_NAME)arm
-    endif
-BINARY_PATH := $(BINARY_PATH_PREFIX)$(BINARY_PATH)/$(BINARY_NAME)
-endif
-
-MODULE_PATH := cmd/app/github.com/ZanzyTHEbar/genkithandler.go
-
 # Default target
-.DEFAULT_GOAL := build
+.DEFAULT_GOAL := test
 
-DEFAULT_DB_PATH = ~/.config/github.com/ZanzyTHEbar/genkithandler/central.db
-TEMP_PATHS =  /tmp/github.com/ZanzyTHEbar/genkithandler_test
+# Library targets - no binary building
+all: fmt vet test
 
-all: build
-
+# Build the library (compilation check)
 build:
-	@echo "Building $(BINARY_NAME) ..."
-	@echo "Moving binary to $(BINARY_PATH) ..."
-	@mkdir -p $(BINARY_PATH)
-	@CGO_ENABLED=1 go build $(BUILD_FLAGS) -o $(BINARY_PATH) $(MODULE_PATH)
+	@echo "Building library..."
+	@go build $(BUILD_FLAGS) ./...
 
-clean-all:
-	@echo "Cleaning All..."
-	@rm -rf $(BINARY_PATH_PREFIX)
-	@go clean -cache -modcache -i -r
+# Format Go code
+fmt:
+	@echo "Formatting Go code..."
+	@go fmt ./...
 
-clean:
-	@echo "Cleaning Binary..."
-	@echo "Removing $(DEFAULT_DB_PATH) ..."
-	@rm -f $(DEFAULT_DB_PATH) 
-	@echo "Removing $(BINARY_PATH) ..."
-	@rm -rf $(BINARY_PATH_PREFIX)
-	@echo "Removing temporary test directories $(TEMP_PATHS) ..."
-	@rm -rf $(TEMP_PATHS)*
+# Vet Go code
+vet:
+	@echo "Vetting Go code..."
+	@go vet ./...
 
-gentest:
-	@echo "Generating test directory..."
-	@mkdir -p $(TEMP_PATHS)-$(shell date +'%Y%m%d%H%M%S')-$(shell shuf -i 1-1000 -n 1) 
-
-run:
-	@echo "Running..."
-	@go run $(MODULE_PATH)
-
-bin:
-	@echo "Running binary..."
-	@./bin/github.com/ZanzyTHEbar/genkithandler-linuxamd64/./github.com/ZanzyTHEbar/genkithandler
-
-# Test the application
+# Run tests with coverage
 test:
-	@echo "Testing..."
-	@go test ./tests -v
+	@echo "Running tests..."
+	@go test -timeout $(TEST_TIMEOUT) -v ./...
 
-.PHONY: all build run test clean clean-all
+# Run tests with coverage report
+test-coverage:
+	@echo "Running tests with coverage..."
+	@go test -timeout $(TEST_TIMEOUT) -coverprofile=$(COVERAGE_OUT) ./...
+	@go tool cover -html=$(COVERAGE_OUT)
+
+# Tidy dependencies
+tidy:
+	@echo "Tidying dependencies..."
+	@go mod tidy
+
+# Clean test cache and coverage files
+clean:
+	@echo "Cleaning..."
+	@go clean -testcache
+	@rm -f $(COVERAGE_OUT)
+
+# Development workflow
+dev: tidy fmt vet test
+
+# CI workflow
+ci: build test
+
+.PHONY: all build fmt vet test test-coverage tidy clean dev ci

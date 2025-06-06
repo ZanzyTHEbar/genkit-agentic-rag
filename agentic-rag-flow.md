@@ -14,7 +14,7 @@ OpenAI's Agentic RAG Flow is a framework that combines retrieval-augmented gener
 
 ```mermaid
 flowchart TD
-    A[Start: CLI Invocation]
+    A[Start: Library Initialization]
     B[Load Config and Environment Variables]
     C[Initialize LLM Provider Wrapper]
     D{Select LLM Provider}
@@ -37,7 +37,7 @@ flowchart TD
     U[Observability and Metrics Logging]
     V[Self-Optimization and Adaptive Tuning]
     W[Robust Error Handling and Retry Logic]
-    X[Return Final Response to CLI]
+    X[Return Final Response to Application]
 
     A --> B
     B --> C
