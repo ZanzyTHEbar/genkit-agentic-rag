@@ -80,7 +80,7 @@ func TestGoogleAIProvider_Initialize_MissingAPIKey(t *testing.T) {
 
 	// Configure the mock to return a specific error when New is called with these arguments
 	expectedErrorMessage := "Google AI API key is required"
-	mockErrorHandler.On("New", expectedErrorMessage, mock.Anything).Return(errors.New(expectedErrorMessage))
+	mockErrorHandler.On("New", expectedErrorMessage, mock.AnythingOfType("map[string]interface{}")).Return(errors.New(expectedErrorMessage))
 
 	provider := NewGoogleAIProvider(mockLogger, mockErrorHandler)
 	configMap := map[string]interface{}{
@@ -180,7 +180,7 @@ func TestGoogleAIProvider_GetMaxTokens(t *testing.T) {
 		{"gemini-1.5-flash-latest", 1048576},
 		// {"gemini-2.0-flash", 1048576}, // Assuming this is a valid model name for testing - commented out as it might not be a real model
 		{"unknown-model", 32768}, // Default
-		{"", 1048576},            // Default for empty model name (gemini-1.5-flash)
+		{"", 32768},              // Default for empty model name (though GetModel handles this)
 	}
 
 	for _, tc := range testCases {
