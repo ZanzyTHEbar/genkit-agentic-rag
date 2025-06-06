@@ -2,10 +2,10 @@ package providers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
-	"github.com/ZanzyTHEbar/genkithandler/internal"
-
+	"github.com/ZanzyTHEbar/genkithandler/pkg/config"
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 )

@@ -1,13 +1,9 @@
 package providers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/firebase/genkit/go/ai"
-	"github.com/firebase/genkit/go/genkit"
 )
 
 const (
@@ -17,37 +13,6 @@ const (
 	ProviderTypeAnthropic ProviderType = "anthropic"
 	ProviderTypeAzureAI   ProviderType = "azureai"
 )
-
-// Legacy AIProvider interface for backward compatibility
-// The main AIProvider interface is now defined in genkithandler/types.go
-type AIProvider interface {
-	// Initialize sets up the provider with the Genkit instance
-	Initialize(ctx context.Context, g *genkit.Genkit) error
-
-	// GenerateText generates a simple text response
-	GenerateText(ctx context.Context, g *genkit.Genkit, prompt string) (string, error)
-
-	// GenerateWithStructuredOutput generates a response with structured output
-	GenerateWithStructuredOutput(ctx context.Context, g *genkit.Genkit, prompt string, outputType interface{}) (*ai.ModelResponse, error)
-
-	// GenerateStream generates a streaming response (to be implemented)
-	GenerateStream(ctx context.Context, g *genkit.Genkit, prompt string) (<-chan StreamChunk, error)
-
-	// CallTool executes a tool through the AI model (to be implemented)
-	CallTool(ctx context.Context, g *genkit.Genkit, toolName string, params map[string]interface{}) (*ToolCallResult, error)
-
-	// GetModel returns the configured model name
-	GetModel() string
-
-	// IsAvailable checks if the provider is properly configured and available
-	IsAvailable() bool
-
-	// SupportsStructuredOutput indicates if the provider supports structured output
-	SupportsStructuredOutput() bool
-
-	// GetMaxTokens returns the maximum token limit for the configured model
-	GetMaxTokens() int
-}
 
 // StreamChunk represents a chunk of streaming response
 type StreamChunk struct {

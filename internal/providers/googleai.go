@@ -2,15 +2,13 @@ package providers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
-	"errors"
-
-	"github.com/ZanzyTHEbar/genkithandler/internal"
-
+	"github.com/ZanzyTHEbar/genkithandler/pkg/domain"
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/firebase/genkit/go/plugins/googlegenai"
@@ -24,7 +22,8 @@ type RetryConfig struct {
 }
 
 type GoogleAIProviderConfig struct {
-	pluginConfig internal.GenkitPlugin
+	APIKey       string `json:"api_key" mapstructure:"api_key"`
+	DefaultModel string `json:"default_model" mapstructure:"default_model"`
 	// MaxOutputTokens is the maximum number of tokens to generate.
 	// MaxOutputTokens int `json:"maxOutputTokens,omitempty"`
 	// StopSequences is the list of sequences where the model will stop generating further tokens.
@@ -53,10 +52,12 @@ type GoogleAIProvider struct {
 	initialized bool
 	retryConfig RetryConfig
 	config      GoogleAIProviderConfig
+	logger      domain.Logger
+	errorHandler domain.ErrorHandler
 }
 
 // NewGoogleAIProvider creates a new Google AI provider instance
-func NewGoogleAIProvider(pluginCfg internal.GenkitPlugin) *GoogleAIProvider {
+func NewGoogleAIProvider(logger domain.Logger, errorHandler domain.ErrorHandler) *GoogleAIProvider {
 	// Default retry configuration
 	retryConfig := RetryConfig{
 		MaxRetries: 3,
@@ -64,23 +65,51 @@ func NewGoogleAIProvider(pluginCfg internal.GenkitPlugin) *GoogleAIProvider {
 		MaxDelay:   30 * time.Second,
 	}
 
-	config := GoogleAIProviderConfig{
-		pluginConfig: pluginCfg,
-		GeminiConfig: googlegenai.GeminiConfig{},
+	return &GoogleAIProvider{
+		retryConfig:  retryConfig,
+		logger:       logger,
+		errorHandler: errorHandler,
+		initialized:  false,
+	}
+}
+
+// Initialize initializes the Google AI provider
+func (p *GoogleAIProvider) Initialize(ctx context.Context, config map[string]interface{}) error {
+	// Parse configuration
+	var googleConfig GoogleAIProviderConfig
+	if err := p.parseConfig(config, &googleConfig); err != nil {
+		return p.errorHandler.Wrap(err, "failed to parse configuration", map[string]interface{}{
+			"config": config,
+		})
 	}
 
-	return &GoogleAIProvider{
-		config:      config,
-		retryConfig: retryConfig,
+	// Validate required fields
+	if googleConfig.APIKey == "" {
+		return p.errorHandler.New("Google AI API key is required", map[string]interface{}{
+			"config": config,
+		})
 	}
+
+	if googleConfig.DefaultModel == "" {
+		googleConfig.DefaultModel = "gemini-1.5-flash" // Default model
+	}
+
+	p.config = googleConfig
+	p.initialized = true
+
+	p.logger.Info("Google AI provider initialized successfully", map[string]interface{}{
+		"default_model": googleConfig.DefaultModel,
+	})
+
+	return nil
 }
 
 // GetModel returns the configured model for Google AI
 func (p *GoogleAIProvider) GetModel() string {
-	if p.config.pluginConfig.DefaultModel == "" {
+	if p.config.DefaultModel == "" {
 		return "gemini-2.5-pro"
 	}
-	return p.config.pluginConfig.DefaultModel
+	return p.config.DefaultModel
 }
 
 // GenerateText generates text using the Google AI provider
@@ -246,7 +275,7 @@ func (p *GoogleAIProvider) isRetryable(err error) bool {
 
 // IsAvailable checks if the Google AI provider is available and configured
 func (p *GoogleAIProvider) IsAvailable() bool {
-	return p.config.pluginConfig.APIKey != "" && p.initialized
+	return p.config.APIKey != "" && p.initialized
 }
 
 // SupportsStructuredOutput indicates whether this provider supports structured output
@@ -299,7 +328,7 @@ func (p *GoogleAIProvider) CallTool(ctx context.Context, g *genkit.Genkit, toolN
 			Result:   nil,
 			Success:  false,
 			Duration: time.Since(startTime),
-			Error:    internal.NewToolNotFoundError(toolName, "tool name cannot be empty"),
+			Error:    fmt.Errorf("tool name cannot be empty"),
 		}, fmt.Errorf("tool name cannot be empty")
 	}
 
@@ -359,4 +388,15 @@ func (p *GoogleAIProvider) CallTool(ctx context.Context, g *genkit.Genkit, toolN
 	}
 
 	return result, nil
+}
+
+// parseConfig parses the configuration map into GoogleAIProviderConfig struct
+func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConfig *GoogleAIProviderConfig) error {
+	if apiKey, ok := config["api_key"].(string); ok {
+		googleConfig.APIKey = apiKey
+	}
+	if defaultModel, ok := config["default_model"].(string); ok {
+		googleConfig.DefaultModel = defaultModel
+	}
+	return nil
 }
