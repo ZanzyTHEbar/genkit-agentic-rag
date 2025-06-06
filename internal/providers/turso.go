@@ -39,7 +39,7 @@ func NewTursoVectorStore(logger domain.Logger, errorHandler domain.ErrorHandler)
 	return &TursoVectorStore{
 		logger:       logger,
 		errorHandler: errorHandler,
-		tableName:    "documents", // default table name
+		tableName:    "documents",
 	}
 }
 

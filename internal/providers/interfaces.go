@@ -1,10 +1,30 @@
 package providers
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"time"
+
+	"github.com/firebase/genkit/go/ai"
 )
+
+// AIProvider represents a simplified AI provider interface
+type AIProvider interface {
+	// Initialize sets up the provider with configuration
+	Initialize(ctx context.Context, config map[string]interface{}) error
+
+	// GenerateText generates a simple text response
+	GenerateText(ctx context.Context, prompt string) (string, error)
+
+	// GenerateWithStructuredOutput generates a response with structured output
+	GenerateWithStructuredOutput(ctx context.Context, prompt string, outputType interface{}) (*ai.ModelResponse, error)
+
+	// GetModel returns the configured model name
+	GetModel() string
+
+	// IsAvailable checks if the provider is properly configured and available
+	IsAvailable() bool
+}
 
 const (
 	ProviderTypeOpenAI    ProviderType = "openai"
@@ -40,7 +60,7 @@ type StructuredResponse struct {
 }
 
 // ProviderManager manages multiple AI providers with fallback support
-type ProviderManager struct {
+type LegacyProviderManager struct {
 	providers map[string]AIProvider
 	primary   string
 	fallback  string
@@ -72,7 +92,7 @@ type GenerateRequest struct {
 	Schema *ResponseSchema `json:"schema,omitempty"`
 
 	// Tools available for the AI to call
-	Tools []LegacyToolDefinition `json:"tools,omitempty"`
+	Tools []ToolDefinition `json:"tools,omitempty"`
 
 	// Temperature controls randomness (0.0 to 1.0)
 	Temperature *float64 `json:"temperature,omitempty"`
@@ -235,77 +255,8 @@ type ProviderSettings struct {
 	Extra map[string]interface{} `json:"extra,omitempty"`
 }
 
-// NewProviderManager creates a new provider manager
-func NewProviderManager() *ProviderManager {
-	return &ProviderManager{
-		providers: make(map[string]AIProvider),
-	}
-}
-
-// RegisterProvider adds a provider to the manager
-func (pm *ProviderManager) RegisterProvider(name string, provider AIProvider) {
-	pm.providers[name] = provider
-}
-
-// SetPrimary sets the primary provider
-func (pm *ProviderManager) SetPrimary(name string) error {
-	if _, exists := pm.providers[name]; !exists {
-		return fmt.Errorf("provider %s not registered", name)
-	}
-	pm.primary = name
-	return nil
-}
-
-// SetFallback sets the fallback provider
-func (pm *ProviderManager) SetFallback(name string) error {
-	if _, exists := pm.providers[name]; !exists {
-		return fmt.Errorf("provider %s not registered", name)
-	}
-	pm.fallback = name
-	return nil
-}
-
-// GetProvider returns the named provider
-func (pm *ProviderManager) GetProvider(name string) (AIProvider, bool) {
-	provider, exists := pm.providers[name]
-	return provider, exists
-}
-
-// GetPrimaryProvider returns the primary provider
-func (pm *ProviderManager) GetPrimaryProvider() (AIProvider, error) {
-	if pm.primary == "" {
-		return nil, fmt.Errorf("no primary provider set")
-	}
-
-	provider, exists := pm.providers[pm.primary]
-	if !exists {
-		return nil, fmt.Errorf("primary provider %s not found", pm.primary)
-	}
-
-	if !provider.IsAvailable() {
-		if pm.fallback != "" {
-			fallbackProvider, exists := pm.providers[pm.fallback]
-			if exists && fallbackProvider.IsAvailable() {
-				return fallbackProvider, nil
-			}
-		}
-		return nil, fmt.Errorf("primary provider %s not available and no fallback", pm.primary)
-	}
-
-	return provider, nil
-}
-
-// ListProviders returns all registered provider names
-func (pm *ProviderManager) ListProviders() []string {
-	names := make([]string, 0, len(pm.providers))
-	for name := range pm.providers {
-		names = append(names, name)
-	}
-	return names
-}
-
-// Legacy tool definition for backward compatibility
-type LegacyToolDefinition struct {
+// ToolDefinition represents a tool that can be called by AI
+type ToolDefinition struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`

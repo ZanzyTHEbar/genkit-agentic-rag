@@ -21,3 +21,5 @@ Be surgical in your approach, focusing on one task at a time. Ensure that each t
 If `go mod tidy` is ran before the dependencies are used, it will remove the dependencies that are not used. Therefore, make sure to add AND USE _all_ required dependencies before running `go mod tidy`.
 
 ALL PLACEHOLDER LOGIC MUST BE IMPLEMENTED IN REAL-TIME. DO NOT LEAVE ANY PLACEHOLDER LOGIC UNIMPLEMENTED. DO NOT LEAVE ANY TODOs UNADDRESSED. PRIORITISE COMPLETING ALL TASKS IN REAL-TIME BEFORE MOVING ON TO NEW TASKS.
+
+Always take a forward looking attitude and outlook. Avoid implementing "backwards compatablity" logic. 
