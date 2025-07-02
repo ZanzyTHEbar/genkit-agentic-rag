@@ -126,20 +126,24 @@ func TestGoogleAIProvider_GetModel_NotInitialized(t *testing.T) {
 func TestGoogleAIProvider_GenerateText_NotInitialized(t *testing.T) {
 	mockLogger := new(MockLogger)
 	mockErrorHandler := new(MockErrorHandler)
+	mockErrorHandler.On("New", "provider not initialized", mock.Anything).Return(errors.New("provider not initialized"))
 	provider := NewGoogleAIProvider(mockLogger, mockErrorHandler)
 	_, err := provider.GenerateText(context.Background(), "test prompt")
 	assert.Error(t, err, "GenerateText should return an error if provider is not initialized")
 	assert.Contains(t, err.Error(), "provider not initialized", "Error message should indicate provider not initialized")
+	mockErrorHandler.AssertExpectations(t)
 }
 
 // TestGoogleAIProvider_GenerateWithStructuredOutput_NotInitialized tests GenerateWithStructuredOutput before initialization
 func TestGoogleAIProvider_GenerateWithStructuredOutput_NotInitialized(t *testing.T) {
 	mockLogger := new(MockLogger)
 	mockErrorHandler := new(MockErrorHandler)
+	mockErrorHandler.On("New", "provider not initialized", mock.Anything).Return(errors.New("provider not initialized"))
 	provider := NewGoogleAIProvider(mockLogger, mockErrorHandler)
 	_, err := provider.GenerateWithStructuredOutput(context.Background(), "test prompt", nil)
 	assert.Error(t, err, "GenerateWithStructuredOutput should return an error if provider is not initialized")
 	assert.Contains(t, err.Error(), "provider not initialized", "Error message should indicate provider not initialized")
+	mockErrorHandler.AssertExpectations(t)
 }
 
 // TestGoogleAIProvider_IsAvailable tests IsAvailable
@@ -389,11 +393,13 @@ func TestGoogleAIProvider_GenerateText_WithAPIKey(t *testing.T) {
 func TestGoogleAIProvider_CallTool_NotInitialized(t *testing.T) {
 	mockLogger := new(MockLogger)
 	mockErrorHandler := new(MockErrorHandler)
+	mockErrorHandler.On("New", "provider not initialized", mock.Anything).Return(errors.New("provider not initialized"))
 	provider := NewGoogleAIProvider(mockLogger, mockErrorHandler)
 
 	_, err := provider.CallTool(context.Background(), nil, "testTool", nil)
 	assert.Error(t, err, "CallTool should return an error if not initialized")
 	assert.Contains(t, err.Error(), "provider not initialized")
+	mockErrorHandler.AssertExpectations(t)
 }
 
 // TestGoogleAIProvider_CallTool_WithAPIKey (Placeholder - requires more setup for tool definition)

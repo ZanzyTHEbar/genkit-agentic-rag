@@ -2,7 +2,6 @@ package providers
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/ZanzyTHEbar/genkithandler/pkg/config"
@@ -33,7 +32,9 @@ func NewManager(logger domain.Logger, errorHandler domain.ErrorHandler) *Manager
 // RegisterProvider registers an AI provider with the manager
 func (m *Manager) RegisterProvider(providerType ProviderType, provider AIProvider) error {
 	if provider == nil {
-		return errors.New("provider cannot be nil")
+		return m.errorHandler.New("provider cannot be nil", map[string]interface{}{
+			"provider_type": string(providerType),
+		})
 	}
 
 	m.providers[providerType] = provider
@@ -72,7 +73,9 @@ func (m *Manager) Initialize(ctx context.Context, cfg config.Config) error {
 	}
 
 	if len(m.fallbackOrder) == 0 {
-		return errors.New("no AI providers are configured and available")
+		return m.errorHandler.New("no AI providers are configured and available", map[string]interface{}{
+			"configured_providers": len(m.providers),
+		})
 	}
 
 	slog.Info("Provider manager initialized",
@@ -87,7 +90,9 @@ func (m *Manager) Initialize(ctx context.Context, cfg config.Config) error {
 // GenerateText generates text using the primary provider with fallback support
 func (m *Manager) GenerateText(ctx context.Context, prompt string) (string, error) {
 	if !m.initialized {
-		return "", errors.New("provider manager not initialized")
+		return "", m.errorHandler.New("provider manager not initialized", map[string]interface{}{
+			"method": "GenerateText",
+		})
 	}
 
 	var lastErr error
@@ -124,13 +129,18 @@ func (m *Manager) GenerateText(ctx context.Context, prompt string) (string, erro
 		return "", lastErr
 	}
 
-	return "", errors.New("all AI providers failed to generate text")
+	return "", m.errorHandler.New("all AI providers failed to generate text", map[string]interface{}{
+		"providers_tried": len(m.fallbackOrder),
+		"method":          "GenerateText",
+	})
 }
 
 // GenerateWithStructuredOutput generates structured output using the primary provider with fallback support
 func (m *Manager) GenerateWithStructuredOutput(ctx context.Context, prompt string, outputType interface{}) (*ai.ModelResponse, error) {
 	if !m.initialized {
-		return nil, errors.New("provider manager not initialized")
+		return nil, m.errorHandler.New("provider manager not initialized", map[string]interface{}{
+			"method": "GenerateWithStructuredOutput",
+		})
 	}
 
 	var lastErr error
@@ -166,7 +176,10 @@ func (m *Manager) GenerateWithStructuredOutput(ctx context.Context, prompt strin
 		return nil, lastErr
 	}
 
-	return nil, errors.New("all AI providers failed to generate structured output")
+	return nil, m.errorHandler.New("all AI providers failed to generate structured output", map[string]interface{}{
+		"providers_tried": len(m.fallbackOrder),
+		"method":          "GenerateWithStructuredOutput",
+	})
 }
 
 // IsProviderAvailable checks if a specific provider is available
@@ -185,7 +198,10 @@ func (m *Manager) GetPrimaryProvider() ProviderType {
 // SetPrimaryProvider sets the primary provider
 func (m *Manager) SetPrimaryProvider(providerType ProviderType) error {
 	if !m.IsProviderAvailable(providerType) {
-		return errors.New("provider is not available")
+		return m.errorHandler.New("provider is not available", map[string]interface{}{
+			"provider_type": string(providerType),
+			"method":        "IsProviderAvailable",
+		})
 	}
 	m.primaryType = providerType
 	return nil

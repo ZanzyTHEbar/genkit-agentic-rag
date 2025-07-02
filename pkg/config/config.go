@@ -283,21 +283,21 @@ func (m *Manager) GetStringMap(key string) map[string]interface{} {
 func (m *Manager) Validate() error {
 	// Validate Google AI configuration
 	if m.config.GoogleAI.APIKey == "" {
-		return errbuilder.NewErrBuilder().WithMsg("Google AI API key is required")
+		return errbuilder.New().WithMsg("Google AI API key is required")
 	}
 
 	// Validate TursoDB configuration
 	if m.config.TursoDB.DatabaseURL == "" {
-		return errbuilder.NewErrBuilder().WithMsg("TursoDB database URL is required")
+		return errbuilder.New().WithMsg("TursoDB database URL is required")
 	}
 
 	if m.config.TursoDB.AuthToken == "" {
-		return errbuilder.NewErrBuilder().WithMsg("TursoDB auth token is required")
+		return errbuilder.New().WithMsg("TursoDB auth token is required")
 	}
 
 	// Validate vector store configuration
 	if m.config.VectorStore.EmbeddingDim <= 0 {
-		return errbuilder.NewErrBuilder().WithMsg("embedding dimension must be positive")
+		return errbuilder.New().WithMsg("embedding dimension must be positive")
 	}
 
 	// Validate similarity metric
@@ -311,17 +311,17 @@ func (m *Manager) Validate() error {
 		}
 	}
 	if !valid {
-		return errbuilder.NewErrBuilder().WithMsg("invalid similarity metric")
+		return errbuilder.New().WithMsg("invalid similarity metric")
 	}
 
 	// Validate agent configurations
 	for _, agentConfig := range m.config.Agents {
 		if agentConfig.Name == "" {
-			return errbuilder.NewErrBuilder().WithMsg("agent name is required")
+			return errbuilder.New().WithMsg("agent name is required")
 		}
 
 		if agentConfig.SystemPrompt == "" {
-			return errbuilder.NewErrBuilder().WithMsg("agent system prompt is required")
+			return errbuilder.New().WithMsg("agent system prompt is required")
 		}
 
 		// Validate agent type
@@ -335,7 +335,7 @@ func (m *Manager) Validate() error {
 			}
 		}
 		if !valid {
-			return errbuilder.NewErrBuilder().WithMsg("invalid agent type")
+			return errbuilder.New().WithMsg("invalid agent type")
 		}
 	}
 
