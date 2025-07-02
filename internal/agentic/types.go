@@ -139,3 +139,46 @@ type KnowledgeGraphConfig struct {
 	RelationTypes          []string `json:"relation_types"`
 	MinConfidenceThreshold float64  `json:"min_confidence_threshold"`
 }
+
+// Tool request/response types
+
+// ChunkDocumentRequest represents a request to chunk a document
+type ChunkDocumentRequest struct {
+	Content   string `json:"content" jsonschema_description:"Document content to chunk"`
+	MaxChunks int    `json:"max_chunks,omitempty" jsonschema_description:"Maximum number of chunks to create"`
+}
+
+// ChunkDocumentResponse represents the response from document chunking
+type ChunkDocumentResponse struct {
+	Chunks      []DocumentChunk `json:"chunks" jsonschema_description:"Created chunks"`
+	ChunkCount  int             `json:"chunk_count" jsonschema_description:"Number of chunks created"`
+	ProcessedAt string          `json:"processed_at" jsonschema_description:"Processing timestamp"`
+}
+
+// RelevanceScoreRequest represents a request to score chunk relevance
+type RelevanceScoreRequest struct {
+	Query  string   `json:"query" jsonschema_description:"Query to score against"`
+	Chunks []string `json:"chunks" jsonschema_description:"Text chunks to score"`
+}
+
+// RelevanceScoreResponse represents the response from relevance scoring
+type RelevanceScoreResponse struct {
+	Scores []RelevanceScore `json:"scores" jsonschema_description:"Relevance scores for each chunk"`
+}
+
+// RelevanceScore represents the relevance score for a single chunk
+type RelevanceScore struct {
+	ChunkIndex int     `json:"chunk_index" jsonschema_description:"Index of the chunk"`
+	Score      float64 `json:"score" jsonschema_description:"Relevance score (0-1)"`
+	ChunkText  string  `json:"chunk_text" jsonschema_description:"Text content of the chunk"`
+}
+
+// KnowledgeGraphRequest represents a request to extract knowledge graph
+type KnowledgeGraphRequest struct {
+	Chunks []string `json:"chunks" jsonschema_description:"Text chunks to process"`
+}
+
+// KnowledgeGraphResponse represents the response from knowledge graph extraction
+type KnowledgeGraphResponse struct {
+	KnowledgeGraph *KnowledgeGraph `json:"knowledge_graph" jsonschema_description:"Extracted knowledge graph"`
+}

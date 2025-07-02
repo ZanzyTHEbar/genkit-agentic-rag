@@ -1,0 +1,144 @@
+package agentic
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/firebase/genkit/go/ai"
+	"github.com/firebase/genkit/go/genkit"
+)
+
+const PluginID = "agentic-rag"
+
+// AgenticRAGPlugin represents the GenKit plugin for agentic RAG
+type AgenticRAGPlugin struct {
+	processor *AgenticRAGProcessor
+	config    *AgenticRAGConfig
+}
+
+// NewPlugin creates a new agentic RAG plugin
+func NewPlugin(config *AgenticRAGConfig) *AgenticRAGPlugin {
+	if config == nil {
+		config = DefaultConfig()
+	}
+
+	return &AgenticRAGPlugin{
+		processor: NewAgenticRAGProcessor(config),
+		config:    config,
+	}
+}
+
+// Name returns the plugin name
+func (p *AgenticRAGPlugin) Name() string {
+	return PluginID
+}
+
+// Init initializes the plugin with GenKit
+func (p *AgenticRAGPlugin) Init(ctx context.Context, g *genkit.Genkit) error {
+	// Register the main agentic RAG flow
+	if err := p.registerFlows(ctx, g); err != nil {
+		return fmt.Errorf("failed to register flows: %w", err)
+	}
+
+	// Register tools for document processing
+	if err := p.registerTools(ctx, g); err != nil {
+		return fmt.Errorf("failed to register tools: %w", err)
+	}
+
+	return nil
+}
+
+// registerFlows registers the agentic RAG flows
+func (p *AgenticRAGPlugin) registerFlows(ctx context.Context, g *genkit.Genkit) error {
+	// Main agentic RAG flow
+	genkit.DefineFlow(
+		g,
+		"agenticRAG",
+		func(ctx context.Context, input AgenticRAGRequest) (*AgenticRAGResponse, error) {
+			return p.processor.Process(ctx, input)
+		},
+	)
+
+	return nil
+}
+
+// registerTools registers helper tools
+func (p *AgenticRAGPlugin) registerTools(ctx context.Context, g *genkit.Genkit) error {
+	// Document chunking tool
+	genkit.DefineTool(
+		g,
+		"chunkDocument",
+		"Chunks a document into smaller pieces respecting sentence boundaries",
+		func(ctx *ai.ToolContext, input ChunkDocumentRequest) (ChunkDocumentResponse, error) {
+			doc := Document{
+				ID:      "temp_doc",
+				Content: input.Content,
+				Source:  "user_input",
+			}
+
+			chunks, err := p.processor.chunkDocument(ctx, doc, input.MaxChunks)
+			if err != nil {
+				return ChunkDocumentResponse{}, err
+			}
+
+			return ChunkDocumentResponse{
+				Chunks:      chunks,
+				ChunkCount:  len(chunks),
+				ProcessedAt: "now", // Simplified for MVP
+			}, nil
+		},
+	)
+
+	// Relevance scoring tool
+	genkit.DefineTool(
+		g,
+		"scoreRelevance",
+		"Scores the relevance of text chunks against a query",
+		func(ctx *ai.ToolContext, input RelevanceScoreRequest) (RelevanceScoreResponse, error) {
+			scores := make([]RelevanceScore, len(input.Chunks))
+
+			for i, chunkText := range input.Chunks {
+				score := p.processor.calculateRelevanceScore(input.Query, chunkText)
+				scores[i] = RelevanceScore{
+					ChunkIndex: i,
+					Score:      score,
+					ChunkText:  chunkText,
+				}
+			}
+
+			return RelevanceScoreResponse{
+				Scores: scores,
+			}, nil
+		},
+	)
+
+	// Knowledge graph extraction tool
+	if p.config.KnowledgeGraph.Enabled {
+		genkit.DefineTool(
+			g,
+			"extractKnowledgeGraph",
+			"Extracts entities and relations to build a knowledge graph",
+			func(ctx *ai.ToolContext, input KnowledgeGraphRequest) (KnowledgeGraphResponse, error) {
+				// Convert input chunks to DocumentChunk format
+				chunks := make([]DocumentChunk, len(input.Chunks))
+				for i, chunkText := range input.Chunks {
+					chunks[i] = DocumentChunk{
+						ID:      fmt.Sprintf("chunk_%d", i),
+						Content: chunkText,
+					}
+				}
+
+				kg, err := p.processor.buildKnowledgeGraph(ctx, chunks)
+				if err != nil {
+					return KnowledgeGraphResponse{}, err
+				}
+
+				return KnowledgeGraphResponse{
+					KnowledgeGraph: kg,
+				}, nil
+			},
+		)
+	}
+
+	return nil
+}

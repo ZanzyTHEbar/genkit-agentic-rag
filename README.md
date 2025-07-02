@@ -1,4 +1,51 @@
-# GenKitHandler
+# GenKit Handler - Agentic RAG Plugin
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)  
+[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)  
+[![Coverage Status](https://coveralls.io/repos/github/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)  
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generation (RAG) system following the OpenAI Agentic RAG Flow specification.
+
+## Features
+
+✅ **Core Agentic RAG Flow** - Implements the 8-step agentic RAG process:
+
+1. Load entire documents into context window with intelligent management
+2. Chunk documents into manageable pieces respecting sentence boundaries
+3. Prompt model to identify relevant chunks for queries
+4. Recursively drill down into selected chunks for granular information
+5. Generate responses based on retrieved information
+6. Build knowledge graphs from context (optional)
+7. Verify answers for factual accuracy (optional)
+8. Return structured response with metadata
+
+✅ **GenKit Integration** - Native Firebase GenKit plugin with:
+
+- Flow definitions for agentic RAG processing
+- Tool definitions for document chunking, relevance scoring, and knowledge graph extraction
+- Proper request/response types with JSON schema validation
+
+✅ **Configurable Processing** - Flexible configuration options:
+
+- Adjustable chunk sizes and overlap
+- Configurable recursive depth
+- Sentence boundary respect
+- Knowledge graph enablement
+- Fact verification options
+
+✅ **Knowledge Graph Construction** - Automatic entity and relation extraction:
+
+- Entity types: PERSON, ORGANIZATION, LOCATION, CONCEPT
+- Relation types: RELATED_TO, PART_OF, CAUSES, LOCATED_IN
+- Confidence scoring for entities and relations
+
+✅ **Observability** - Built-in metrics and monitoring:
+
+- Processing time tracking
+- Token usage monitoring
+- Chunk processing statistics
+- Recursive level trackingdler
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)  
 [![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)  
@@ -46,7 +93,7 @@ Ensure you have Go 1.24+ installed.
 ```bash
 # Fetch the module
 go get github.com/ZanzyTHEbar/genkithandler
-```  
+```
 
 Add to your project's `go.mod`:
 
@@ -74,7 +121,6 @@ google_ai:
   api_key: "YOUR_GOOGLE_AI_KEY"
   default_model: "gemini-2.0-flash"
   embedding_model: "text-embedding-004"
-
 # Additional provider and vector store settings...
 ```
 
