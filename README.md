@@ -50,7 +50,7 @@ A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generati
 ### Installation
 
 ```bash
-go get github.com/ZanzyTHEbar/agentic-rag
+go get github.com/ZanzyTHEbar/genkit-agentic-rag
 ```
 
 ### Example Usage
@@ -66,7 +66,7 @@ import (
     "github.com/firebase/genkit/go/genkit"
     "github.com/firebase/genkit/go/plugins/googlegenai"
     "github.com/ZanzyTHEbar/genkit-agentic-rag"
-    "github.com/ZanzyTHEbar/genkit-agentic-rag/internal"
+    "github.com/ZanzyTHEbar/genkit-agentic-rag/plugin"
 )
 
 func main() {
@@ -79,22 +79,22 @@ func main() {
     }
 
     // Configure advanced Agentic RAG
-    config := &internal.AgenticRAGConfig{
+    config := &plugin.AgenticRAGConfig{
         Genkit:    g,
-        ModelName: "googleai/gemini-1.5-flash",
-        Processing: internal.ProcessingConfig{
+        ModelName: "googleai/gemini-2.5-flash",
+        Processing: plugin.ProcessingConfig{
             DefaultChunkSize:      800,
             DefaultMaxChunks:      25,
             DefaultRecursiveDepth: 4,
             RespectSentences:      true,
         },
-        KnowledgeGraph: internal.KnowledgeGraphConfig{
+        KnowledgeGraph: plugin.KnowledgeGraphConfig{
             Enabled:                true,
             EntityTypes:            []string{"PERSON", "ORGANIZATION", "TECHNOLOGY", "CONCEPT"},
             RelationTypes:          []string{"DEVELOPS", "USES", "FOUNDED", "LOCATED_IN"},
             MinConfidenceThreshold: 0.8,
         },
-        FactVerification: internal.FactVerificationConfig{
+        FactVerification: plugin.FactVerificationConfig{
             Enabled:              true,
             RequireEvidence:      true,
             MinConfidenceScore:   0.7,
@@ -110,7 +110,7 @@ func main() {
     processor := agentic-rag.NewAgenticRAGProcessor(config)
 
     // Advanced query with comprehensive analysis
-    request := internal.AgenticRAGRequest{
+    request := plugin.AgenticRAGRequest{
         Query: "Analyze the evolution and impact of artificial intelligence technologies",
         Documents: []string{
             `Artificial Intelligence has undergone remarkable evolution since its inception in the 1950s.
@@ -121,7 +121,7 @@ func main() {
              now power applications from autonomous vehicles to medical diagnosis, fundamentally transforming
              industries and society.`,
         },
-        Options: internal.AgenticRAGOptions{
+        Options: plugin.AgenticRAGOptions{
             MaxChunks:              20,
             RecursiveDepth:         3,
             EnableKnowledgeGraph:   true,
@@ -165,7 +165,7 @@ func main() {
     fmt.Printf("- Tokens Processed: %d\n", response.ProcessingMetadata.TokensUsed)
 }
 
-func countVerifiedClaims(claims []internal.Claim) int {
+func countVerifiedClaims(claims []plugin.Claim) int {
     count := 0
     for _, claim := range claims {
         if claim.Status == "verified" {

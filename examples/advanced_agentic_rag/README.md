@@ -45,16 +45,16 @@ import (
 g, err := genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{}))
 
 // Configure Agentic RAG
-config := &internal.AgenticRAGConfig{
+config := &plugin.AgenticRAGConfig{
     Genkit:    g,
     ModelName: "googleai/gemini-2.5-flash",
-    Processing: internal.ProcessingConfig{
+    Processing: plugin.ProcessingConfig{
         DefaultChunkSize:      800,
         DefaultMaxChunks:      25,
         DefaultRecursiveDepth: 4,
         RespectSentences:      true,
     },
-    KnowledgeGraph: internal.KnowledgeGraphConfig{
+    KnowledgeGraph: plugin.KnowledgeGraphConfig{
         Enabled:                true,
         EntityTypes:            []string{"PERSON", "ORGANIZATION", "LOCATION", "CONCEPT"},
         RelationTypes:          []string{"WORKS_FOR", "LOCATED_IN", "FOUNDED"},
@@ -73,10 +73,10 @@ err = agentic-rag.InitializeAgenticRAG(g, config)
 processor := agentic-rag.NewAgenticRAGProcessor(config)
 
 // Process with full features
-request := internal.AgenticRAGRequest{
+request := plugin.AgenticRAGRequest{
     Query: "Your question here",
     Documents: []string{"Document content..."},
-    Options: internal.AgenticRAGOptions{
+    Options: plugin.AgenticRAGOptions{
         MaxChunks:              20,
         RecursiveDepth:         3,
         EnableKnowledgeGraph:   true,

@@ -6,7 +6,7 @@ import (
 	"log"
 
 	genkit_agentic_rag "github.com/ZanzyTHEbar/genkit-agentic-rag"
-	"github.com/ZanzyTHEbar/genkit-agentic-rag/internal"
+	"github.com/ZanzyTHEbar/genkit-agentic-rag/plugin"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 )
@@ -15,26 +15,26 @@ func main() {
 	ctx := context.Background()
 
 	// Create advanced agentic RAG configuration with dotprompt support
-	config := &internal.AgenticRAGConfig{
+	config := &plugin.AgenticRAGConfig{
 		ModelName: "googleai/gemini-2.5-flash",
-		Processing: internal.ProcessingConfig{
+		Processing: plugin.ProcessingConfig{
 			DefaultChunkSize:      800, // Smaller chunks for better precision
 			DefaultMaxChunks:      25,  // More chunks for comprehensive analysis
 			DefaultRecursiveDepth: 4,   // Deeper recursive analysis
 			RespectSentences:      true,
 		},
-		KnowledgeGraph: internal.KnowledgeGraphConfig{
+		KnowledgeGraph: plugin.KnowledgeGraphConfig{
 			Enabled:                true,
 			EntityTypes:            []string{"PERSON", "ORGANIZATION", "TECHNOLOGY", "CONCEPT", "EVENT", "LOCATION"},
 			RelationTypes:          []string{"DEVELOPS", "USES", "FOUNDED", "LOCATED_IN", "WORKS_FOR", "INVENTED"},
 			MinConfidenceThreshold: 0.8, // Higher confidence threshold for quality
 		},
-		FactVerification: internal.FactVerificationConfig{
+		FactVerification: plugin.FactVerificationConfig{
 			Enabled:            true,
 			RequireEvidence:    true,
 			MinConfidenceScore: 0.75,
 		},
-		Prompts: internal.PromptsConfig{
+		Prompts: plugin.PromptsConfig{
 			Directory:                 "../../prompts", // Path to prompts from example directory
 			RelevanceScoringPrompt:    "relevance_scoring",
 			ResponseGenerationPrompt:  "response_generation",
@@ -76,7 +76,7 @@ func main() {
 	processor := genkit_agentic_rag.NewAgenticRAGProcessor(config)
 
 	// Sample technical document
-	request := internal.AgenticRAGRequest{
+	request := plugin.AgenticRAGRequest{
 		Query: "What are the key features and benefits of microservices architecture?",
 		Documents: []string{
 			`Microservices architecture is a design approach where applications are built as a collection of small, 
@@ -87,7 +87,7 @@ func main() {
 			However, microservices also introduce challenges such as increased complexity in service communication, 
 			data consistency issues, and the need for sophisticated monitoring and orchestration tools like Kubernetes.`,
 		},
-		Options: internal.AgenticRAGOptions{
+		Options: plugin.AgenticRAGOptions{
 			MaxChunks:              20,
 			RecursiveDepth:         3,
 			EnableKnowledgeGraph:   true,
@@ -115,7 +115,7 @@ func main() {
 
 	// Example 2: Complex technical analysis
 	fmt.Println("=== Example 2: Complex Technical Analysis ===")
-	complexRequest := internal.AgenticRAGRequest{
+	complexRequest := plugin.AgenticRAGRequest{
 		Query: "How do distributed databases handle consistency and partition tolerance in CAP theorem?",
 		Documents: []string{
 			`The CAP theorem, formulated by Eric Brewer, states that distributed data stores can only guarantee two 
@@ -134,7 +134,7 @@ func main() {
 			algorithms handle more complex failure scenarios where nodes might behave maliciously. Practical Byzantine Fault 
 			Tolerance (pBFT) and its variants are used in blockchain systems and critical distributed applications.`,
 		},
-		Options: internal.AgenticRAGOptions{
+		Options: plugin.AgenticRAGOptions{
 			MaxChunks:              25,
 			RecursiveDepth:         4,
 			EnableKnowledgeGraph:   true,

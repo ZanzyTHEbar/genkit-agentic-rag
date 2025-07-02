@@ -1,4 +1,4 @@
-// package internal provides an agentic RAG (Retrieval-Augmented Generation) plugin for Firebase GenKit.
+// package plugin provides an agentic RAG (Retrieval-Augmented Generation) plugin for Firebase GenKit.
 // This package implements the OpenAI Agentic RAG Flow specification with the following key components:
 //
 // 1. Load entire documents into context window with intelligent context management
@@ -11,7 +11,7 @@
 //
 // The implementation follows hexagonal architecture principles and uses functional options pattern
 // along with Go best practices for concurrent processing and error handling.
-package internal
+package plugin
 
 import (
 	"context"
