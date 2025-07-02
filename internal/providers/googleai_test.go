@@ -180,7 +180,7 @@ func TestGoogleAIProvider_GetMaxTokens(t *testing.T) {
 		{"gemini-1.5-flash-latest", 1048576},
 		// {"gemini-2.0-flash", 1048576}, // Assuming this is a valid model name for testing - commented out as it might not be a real model
 		{"unknown-model", 32768}, // Default
-		{"", 32768},              // Default for empty model name (though GetModel handles this)
+		{"", 1048576},            // Empty model defaults to gemini-1.5-flash
 	}
 
 	for _, tc := range testCases {
@@ -486,7 +486,7 @@ func TestGoogleAIProvider_parseConfig(t *testing.T) {
 	parsedConf = GoogleAIProviderConfig{} // Reset
 	err = provider.parseConfig(invalidTypeConfig, &parsedConf)
 	assert.Error(t, err, "parseConfig should return an error for invalid api_key type")
-	assert.Contains(t, err.Error(), "1 error(s) decoding:", "Error message should indicate decoding error")
+	assert.Contains(t, err.Error(), "Invalid api_key type", "Error message should indicate invalid api_key type")
 
 	// Test case 5: Empty config map
 	emptyConfig := map[string]interface{}{}

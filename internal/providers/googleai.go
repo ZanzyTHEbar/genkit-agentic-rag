@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	errbuilder "github.com/ZanzyTHEbar/errbuilder-go"
 	"github.com/ZanzyTHEbar/genkithandler/pkg/domain"
 	"github.com/firebase/genkit/go/ai"
 	"github.com/firebase/genkit/go/genkit"
@@ -378,11 +379,178 @@ func (p *GoogleAIProvider) CallTool(ctx context.Context, g *genkit.Genkit, toolN
 
 // parseConfig parses the configuration map into GoogleAIProviderConfig struct
 func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConfig *GoogleAIProviderConfig) error {
-	if apiKey, ok := config["api_key"].(string); ok {
-		googleConfig.APIKey = apiKey
+	// Validate input parameters
+	if config == nil {
+		return errbuilder.NewErrBuilder().
+			WithMsg("config cannot be nil").
+			WithCode(errbuilder.CodeInvalidArgument)
 	}
-	if defaultModel, ok := config["default_model"].(string); ok {
-		googleConfig.DefaultModel = defaultModel
+
+	if googleConfig == nil {
+		return errbuilder.NewErrBuilder().
+			WithMsg("googleConfig cannot be nil").
+			WithCode(errbuilder.CodeInvalidArgument)
 	}
+
+	// Parse API key with type validation
+	if apiKeyVal, ok := config["api_key"]; ok {
+		if apiKey, ok := apiKeyVal.(string); ok {
+			googleConfig.APIKey = apiKey
+		} else {
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid api_key type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("string"),
+					"actual_type":   fmt.Errorf("%T", apiKeyVal),
+					"value":         fmt.Errorf("%v", apiKeyVal),
+				}))
+		}
+	}
+
+	// Parse default model with type validation
+	if defaultModelVal, ok := config["default_model"]; ok {
+		if defaultModel, ok := defaultModelVal.(string); ok {
+			googleConfig.DefaultModel = defaultModel
+		} else {
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid default_model type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("string"),
+					"actual_type":   fmt.Errorf("%T", defaultModelVal),
+					"value":         fmt.Errorf("%v", defaultModelVal),
+				}))
+		}
+	}
+
+	// Parse embedding model with type validation (if exists in config struct)
+	if embeddingModelVal, ok := config["embedding_model"]; ok {
+		if embeddingModel, ok := embeddingModelVal.(string); ok {
+			// Note: GoogleAIProviderConfig doesn't have EmbeddingModel field yet
+			// This would require adding it to the struct definition
+			_ = embeddingModel // Silently ignore for now
+		} else {
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid embedding_model type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("string"),
+					"actual_type":   fmt.Errorf("%T", embeddingModelVal),
+					"value":         fmt.Errorf("%v", embeddingModelVal),
+				}))
+		}
+	}
+
+	// Parse temperature with type validation (if exists in config struct)
+	if temperatureVal, ok := config["temperature"]; ok {
+		switch v := temperatureVal.(type) {
+		case float32:
+			// Note: GoogleAIProviderConfig doesn't have Temperature field yet
+			_ = v // Silently ignore for now
+		case float64:
+			_ = float32(v) // Silently ignore for now
+		case int:
+			_ = float32(v) // Silently ignore for now
+		default:
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid temperature type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("float32/float64/int"),
+					"actual_type":   fmt.Errorf("%T", temperatureVal),
+					"value":         fmt.Errorf("%v", temperatureVal),
+				}))
+		}
+	}
+
+	// Parse max tokens with type validation (if exists in config struct)
+	if maxTokensVal, ok := config["max_tokens"]; ok {
+		switch v := maxTokensVal.(type) {
+		case int:
+			// Note: GoogleAIProviderConfig doesn't have MaxTokens field yet
+			_ = v // Silently ignore for now
+		case float64:
+			_ = int(v) // Silently ignore for now
+		case float32:
+			_ = int(v) // Silently ignore for now
+		default:
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid max_tokens type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("int/float64/float32"),
+					"actual_type":   fmt.Errorf("%T", maxTokensVal),
+					"value":         fmt.Errorf("%v", maxTokensVal),
+				}))
+		}
+	}
+
+	// Parse request timeout with type validation (if exists in config struct)
+	if requestTimeoutVal, ok := config["request_timeout"]; ok {
+		switch v := requestTimeoutVal.(type) {
+		case int:
+			// Note: GoogleAIProviderConfig doesn't have RequestTimeout field yet
+			_ = v // Silently ignore for now
+		case float64:
+			_ = int(v) // Silently ignore for now
+		case float32:
+			_ = int(v) // Silently ignore for now
+		default:
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid request_timeout type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("int/float64/float32"),
+					"actual_type":   fmt.Errorf("%T", requestTimeoutVal),
+					"value":         fmt.Errorf("%v", requestTimeoutVal),
+				}))
+		}
+	}
+
+	// Parse retry attempts with type validation (if exists in config struct)
+	if retryAttemptsVal, ok := config["retry_attempts"]; ok {
+		switch v := retryAttemptsVal.(type) {
+		case int:
+			// Note: GoogleAIProviderConfig doesn't have RetryAttempts field yet
+			_ = v // Silently ignore for now
+		case float64:
+			_ = int(v) // Silently ignore for now
+		case float32:
+			_ = int(v) // Silently ignore for now
+		default:
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid retry_attempts type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("int/float64/float32"),
+					"actual_type":   fmt.Errorf("%T", retryAttemptsVal),
+					"value":         fmt.Errorf("%v", retryAttemptsVal),
+				}))
+		}
+	}
+
+	// Parse retry delay with type validation (if exists in config struct)
+	if retryDelayVal, ok := config["retry_delay"]; ok {
+		switch v := retryDelayVal.(type) {
+		case int:
+			// Note: GoogleAIProviderConfig doesn't have RetryDelay field yet
+			_ = v // Silently ignore for now
+		case float64:
+			_ = int(v) // Silently ignore for now
+		case float32:
+			_ = int(v) // Silently ignore for now
+		default:
+			return errbuilder.NewErrBuilder().
+				WithMsg("Invalid retry_delay type").
+				WithCode(errbuilder.CodeInvalidArgument).
+				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+					"expected_type": fmt.Errorf("int/float64/float32"),
+					"actual_type":   fmt.Errorf("%T", retryDelayVal),
+					"value":         fmt.Errorf("%v", retryDelayVal),
+				}))
+		}
+	}
+
 	return nil
 }
