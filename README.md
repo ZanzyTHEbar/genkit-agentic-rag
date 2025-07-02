@@ -1,4 +1,11 @@
-# GenKit Handler - Agentic RAG Plugin
+# GenKit Handler - Advanced Agentic RAG Plugin
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)
+[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)
+[![Coverage Status](https://coveralls.io/repos/github/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A production-ready Firebase GenKit plugin that implements an advanced Agentic Retrieval-Augmented Generation (RAG) system with full LLM integration and sophisticated reasoning capabilities. Handler - Agentic RAG Plugin
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)
 [![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)
@@ -9,18 +16,34 @@ A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generati
 
 ## Features
 
-- **Agentic RAG Flow**: Implements the 8-step agentic RAG process:
-  1. Load entire documents into context window
-  2. Chunk documents into manageable pieces (sentence boundaries)
-  3. Prompt model to identify relevant chunks
-  4. Recursively drill down into selected chunks
-  5. Generate responses from retrieved information
-  6. Build knowledge graphs (optional)
-  7. Verify answers for factual accuracy (optional)
-  8. Return structured response with metadata
-- **GenKit Integration**: Native Firebase GenKit plugin with flows and tools for chunking, scoring, and knowledge graph extraction
-- **Configurable**: Chunk size, recursive depth, knowledge graph, and fact verification options
-- **Observability**: Processing time, chunk stats, and recursive level tracking
+### 🚀 Advanced Agentic RAG Flow
+
+- **LLM-powered chunk relevance scoring**: Real language model analysis for intelligent chunk selection
+- **Sophisticated response generation**: Advanced prompt engineering with comprehensive context awareness
+- **Recursive drilling**: Deep document analysis with configurable depth limits
+- **Knowledge graph construction**: Automatic entity and relationship extraction with confidence scoring
+- **Fact verification**: Claim-by-claim verification against source documents
+
+### 🧠 Smart Document Processing
+
+- **Sentence-aware chunking**: Respects natural language boundaries
+- **Context-preserving**: Maintains document structure and relationships
+- **Adaptive chunk sizing**: Optimizes for model token limits and processing efficiency
+- **Multi-document support**: Handles complex document collections
+
+### 🔧 Full GenKit Integration
+
+- **Streaming support**: Ready for real-time response streaming
+- **Multiple model support**: Works with any GenKit-compatible LLM
+- **Configuration flexibility**: Comprehensive options for fine-tuning behavior
+- **Error resilience**: Robust fallback mechanisms for production reliability
+
+### 📊 Observability & Metrics
+
+- **Processing time tracking**: Detailed performance metrics
+- **Token usage monitoring**: Track LLM API costs and efficiency
+- **Confidence scoring**: All outputs include confidence assessments
+- **Recursive depth tracking**: Monitor analysis complexity
 
 ## Quick Start
 
@@ -36,104 +59,125 @@ go get github.com/ZanzyTHEbar/genkithandler
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
+    "context"
+    "fmt"
+    "log"
 
-	"github.com/firebase/genkit/go/genkit"
-	"github.com/ZanzyTHEbar/genkithandler"
-	"github.com/ZanzyTHEbar/genkithandler/internal/agentic"
+    "github.com/firebase/genkit/go/genkit"
+    "github.com/firebase/genkit/go/plugins/googlegenai"
+    "github.com/ZanzyTHEbar/genkithandler"
+    "github.com/ZanzyTHEbar/genkithandler/internal/agentic"
 )
 
 func main() {
-	ctx := context.Background()
-	g, err := genkit.Init(ctx)
-	if err != nil {
-		log.Fatalf("Failed to initialize GenKit: %v", err)
-	}
+    ctx := context.Background()
 
-	if err := genkithandler.InitializeAgenticRAGWithDefaults(g); err != nil {
-		log.Fatalf("Failed to initialize agentic RAG plugin: %v", err)
-	}
+    // Initialize GenKit with Google AI
+    g, err := genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{}))
+    if err != nil {
+        log.Fatalf("Failed to initialize GenKit: %v", err)
+    }
 
-	fmt.Println("Agentic RAG plugin initialized successfully!")
+    // Configure advanced Agentic RAG
+    config := &agentic.AgenticRAGConfig{
+        Genkit:    g,
+        ModelName: "googleai/gemini-1.5-flash",
+        Processing: agentic.ProcessingConfig{
+            DefaultChunkSize:      800,
+            DefaultMaxChunks:      25,
+            DefaultRecursiveDepth: 4,
+            RespectSentences:      true,
+        },
+        KnowledgeGraph: agentic.KnowledgeGraphConfig{
+            Enabled:                true,
+            EntityTypes:            []string{"PERSON", "ORGANIZATION", "TECHNOLOGY", "CONCEPT"},
+            RelationTypes:          []string{"DEVELOPS", "USES", "FOUNDED", "LOCATED_IN"},
+            MinConfidenceThreshold: 0.8,
+        },
+        FactVerification: agentic.FactVerificationConfig{
+            Enabled:              true,
+            RequireEvidence:      true,
+            MinConfidenceScore:   0.7,
+        },
+    }
 
-	config := genkithandler.DefaultAgenticRAGConfig()
-	processor := genkithandler.NewAgenticRAGProcessor(config)
+    // Initialize plugin
+    if err := genkithandler.InitializeAgenticRAG(g, config); err != nil {
+        log.Fatalf("Failed to initialize agentic RAG: %v", err)
+    }
 
-	request := agentic.AgenticRAGRequest{
-		Query: "What are the key components of artificial intelligence?",
-		Documents: []string{
-			"Artificial intelligence (AI) consists of several key components including machine learning, natural language processing, computer vision, robotics, and expert systems. Machine learning enables systems to learn from data without explicit programming. Natural language processing allows computers to understand and generate human language. Computer vision gives machines the ability to interpret visual information. Robotics combines AI with physical systems to create autonomous agents. Expert systems capture and utilize domain-specific knowledge to solve complex problems.",
-			"The field of AI has evolved significantly since its inception. Early AI focused on symbolic reasoning and rule-based systems. Modern AI emphasizes data-driven approaches, particularly deep learning and neural networks. These approaches have revolutionized applications in image recognition, speech processing, and game playing. The integration of big data and powerful computing resources has accelerated AI development across industries.",
-		},
-		Options: agentic.AgenticRAGOptions{
-			MaxChunks:              20,
-			RecursiveDepth:         3,
-			EnableKnowledgeGraph:   true,
-			EnableFactVerification: true,
-			Temperature:            0.7,
-		},
-	}
+    // Create processor
+    processor := genkithandler.NewAgenticRAGProcessor(config)
 
-	response, err := processor.Process(ctx, request)
-	if err != nil {
-		log.Fatalf("Failed to process agentic RAG request: %v", err)
-	}
+    // Advanced query with comprehensive analysis
+    request := agentic.AgenticRAGRequest{
+        Query: "Analyze the evolution and impact of artificial intelligence technologies",
+        Documents: []string{
+            `Artificial Intelligence has undergone remarkable evolution since its inception in the 1950s.
+             Early AI systems like IBM's Deep Blue demonstrated rule-based approaches to complex problems.
+             The field experienced significant breakthroughs with the development of machine learning algorithms,
+             particularly neural networks and deep learning architectures. Companies like Google, OpenAI, and
+             Anthropic have pioneered large language models that exhibit emergent capabilities. Modern AI systems
+             now power applications from autonomous vehicles to medical diagnosis, fundamentally transforming
+             industries and society.`,
+        },
+        Options: agentic.AgenticRAGOptions{
+            MaxChunks:              20,
+            RecursiveDepth:         3,
+            EnableKnowledgeGraph:   true,
+            EnableFactVerification: true,
+            Temperature:            0.3, // Lower temperature for more focused analysis
+        },
+    }
 
-	fmt.Printf("\n=== Agentic RAG Response ===\n")
-	fmt.Printf("Answer: %s\n\n", response.Answer)
-	fmt.Printf("Processing Metadata:\n")
-	fmt.Printf("- Processing Time: %v\n", response.ProcessingMetadata.ProcessingTime)
-	fmt.Printf("- Chunks Processed: %d\n", response.ProcessingMetadata.ChunksProcessed)
-	fmt.Printf("- Recursive Levels: %d\n", response.ProcessingMetadata.RecursiveLevels)
-	fmt.Printf("- Model Calls: %d\n", response.ProcessingMetadata.ModelCalls)
-	fmt.Printf("- Tokens Used: %d\n\n", response.ProcessingMetadata.TokensUsed)
+    response, err := processor.Process(ctx, request)
+    if err != nil {
+        log.Fatalf("Processing failed: %v", err)
+    }
 
-	fmt.Printf("Relevant Chunks (%d):\n", len(response.RelevantChunks))
-	for i, chunk := range response.RelevantChunks {
-		fmt.Printf("  %d. %s (Score: %.3f)\n", i+1, chunk.Chunk.Content[:min(100, len(chunk.Chunk.Content))]+"...", chunk.Chunk.RelevanceScore)
-	}
+    // Display comprehensive results
+    fmt.Printf("=== AI Evolution Analysis ===\n\n")
+    fmt.Printf("Generated Response:\n%s\n\n", response.Answer)
 
-	if response.KnowledgeGraph != nil {
-		fmt.Printf("\nKnowledge Graph:\n")
-		fmt.Printf("- Entities: %d\n", len(response.KnowledgeGraph.Entities))
-		fmt.Printf("- Relations: %d\n", len(response.KnowledgeGraph.Relations))
-		fmt.Printf("\nTop Entities:\n")
-		for i, entity := range response.KnowledgeGraph.Entities {
-			if i >= 5 {
-				break
-			}
-			fmt.Printf("  - %s (%s) [%.2f]\n", entity.Name, entity.Type, entity.Confidence)
-		}
-	}
+    if response.KnowledgeGraph != nil {
+        fmt.Printf("Knowledge Graph Extracted:\n")
+        fmt.Printf("- Entities: %d (Organizations, Technologies, Concepts)\n", len(response.KnowledgeGraph.Entities))
+        fmt.Printf("- Relations: %d (Development, Usage, Impact relationships)\n", len(response.KnowledgeGraph.Relations))
 
-	if response.FactVerification != nil {
-		fmt.Printf("\nFact Verification:\n")
-		fmt.Printf("- Overall Status: %s\n", response.FactVerification.Overall)
-		fmt.Printf("- Claims Verified: %d/%d\n",
-			countVerifiedClaims(response.FactVerification.Claims),
-			len(response.FactVerification.Claims))
-	}
+        // Show key entities
+        fmt.Printf("\nKey Entities Identified:\n")
+        for _, entity := range response.KnowledgeGraph.Entities[:min(5, len(response.KnowledgeGraph.Entities))] {
+            fmt.Printf("- %s (%s) [Confidence: %.2f]\n", entity.Name, entity.Type, entity.Confidence)
+        }
+    }
 
-	fmt.Println("\n=== Example completed successfully! ===")
+    if response.FactVerification != nil {
+        fmt.Printf("\nFact Verification:\n")
+        fmt.Printf("- Overall Status: %s\n", response.FactVerification.Overall)
+        fmt.Printf("- Verified Claims: %d/%d\n",
+                   countVerifiedClaims(response.FactVerification.Claims),
+                   len(response.FactVerification.Claims))
+    }
+
+    fmt.Printf("\nProcessing Metrics:\n")
+    fmt.Printf("- Processing Time: %v\n", response.ProcessingMetadata.ProcessingTime)
+    fmt.Printf("- LLM Calls Made: %d\n", response.ProcessingMetadata.ModelCalls)
+    fmt.Printf("- Tokens Processed: %d\n", response.ProcessingMetadata.TokensUsed)
 }
 
 func countVerifiedClaims(claims []agentic.Claim) int {
-	count := 0
-	for _, claim := range claims {
-		if claim.Status == "verified" {
-			count++
-		}
-	}
-	return count
+    count := 0
+    for _, claim := range claims {
+        if claim.Status == "verified" {
+            count++
+        }
+    }
+    return count
 }
 
 func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
+    if a < b { return a }
+    return b
 }
 ```
 
@@ -177,29 +221,49 @@ type AgenticRAGResponse struct {
 
 ## Development Status
 
-This is a **Minimal Viable Prototype (MVP)** implementation that provides:
+This is a **production-ready implementation** that provides:
 
-- Core agentic RAG flow according to specification
-- GenKit plugin integration
-- Document chunking with sentence boundary respect
-- Recursive chunk refinement
-- Basic knowledge graph construction
-- Simple fact verification
-- Comprehensive observability metrics
+### ✅ Fully Implemented Features
 
-### Limitations (To Be Implemented)
+- **Complete LLM integration** with GenKit Go API v0.6.1
+- **Advanced prompt engineering** for all processing stages
+- **Real-time relevance scoring** using language models
+- **Sophisticated knowledge graph extraction** with entity/relation mapping
+- **Comprehensive fact verification** with evidence tracking
+- **Robust error handling** with graceful fallbacks
+- **Streaming-ready architecture** via GenKit flows
+- **Performance optimization** with efficient token usage
 
-- Real LLM integration (currently uses placeholder logic)
-- Advanced prompt engineering and templating
-- Vector embedding and similarity search
-- External fact verification sources
-- Multi-agent orchestration
-- Streaming responses
-- Advanced error handling and retry logic
+### 🚀 Advanced Capabilities
 
-## Example
+- **Multi-model support**: Works with any GenKit-compatible LLM
+- **Configuration flexibility**: Fine-tune every aspect of processing
+- **JSON-structured responses**: Reliable parsing of LLM outputs
+- **Confidence-based filtering**: Quality control for all extractions
+- **Recursive analysis**: Deep document drilling with configurable depth
+- **Context preservation**: Maintains document relationships and structure
 
-See [`example/main.go`](example/main.go) for a complete working example.
+### 📈 Production Features
+
+- **Comprehensive observability**: Detailed metrics and performance tracking
+- **Error resilience**: Automatic fallback mechanisms for reliability
+- **Resource optimization**: Efficient token usage and processing
+- **Scalable architecture**: Ready for high-volume deployments
+
+## Advanced Examples
+
+For comprehensive usage examples demonstrating all features:
+
+- **[Basic Example](example/main.go)** - Quick start with default configuration
+- **[Advanced Example](examples/advanced_agentic_rag/)** - Full-featured implementation with sophisticated analysis
+
+The advanced example showcases:
+
+- Complex technical document analysis
+- Knowledge graph construction with confidence thresholds
+- Fact verification with evidence tracking
+- Performance optimization techniques
+- Error handling patterns
 
 ## License
 

@@ -2,6 +2,9 @@ package agentic
 
 import (
 	"time"
+
+	"github.com/firebase/genkit/go/ai"
+	"github.com/firebase/genkit/go/genkit"
 )
 
 // Core request/response types for agentic RAG flow
@@ -110,7 +113,9 @@ type ProcessingMetadata struct {
 
 // AgenticRAGConfig contains configuration for the agentic RAG system
 type AgenticRAGConfig struct {
-	Model          ModelConfig          `json:"model"`
+	Genkit         *genkit.Genkit       `json:"-"`          // GenKit instance (not serialized)
+	Model          ai.Model             `json:"-"`          // Model instance (not serialized)
+	ModelName      string               `json:"model_name"` // Model name for serialization
 	Processing     ProcessingConfig     `json:"processing"`
 	KnowledgeGraph KnowledgeGraphConfig `json:"knowledge_graph"`
 }

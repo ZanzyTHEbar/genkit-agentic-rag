@@ -2,10 +2,15 @@ package agentic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/firebase/genkit/go/ai"
+	"github.com/firebase/genkit/go/genkit"
 )
 
 // AgenticRAGProcessor implements the core agentic RAG flow
@@ -26,12 +31,7 @@ func NewAgenticRAGProcessor(config *AgenticRAGConfig) *AgenticRAGProcessor {
 // DefaultConfig returns a default configuration
 func DefaultConfig() *AgenticRAGConfig {
 	return &AgenticRAGConfig{
-		Model: ModelConfig{
-			Provider:    "googleai",
-			Model:       "gemini-1.5-flash",
-			Temperature: 0.7,
-			MaxTokens:   4096,
-		},
+		ModelName: "googleai/gemini-2.5-flash", // Default model name - DO NOT CHANGE
 		Processing: ProcessingConfig{
 			DefaultChunkSize:      1000,
 			DefaultMaxChunks:      20,
@@ -59,7 +59,7 @@ func (p *AgenticRAGProcessor) Process(ctx context.Context, request AgenticRAGReq
 		request.Options.RecursiveDepth = p.config.Processing.DefaultRecursiveDepth
 	}
 	if request.Options.Temperature == 0 {
-		request.Options.Temperature = p.config.Model.Temperature
+		request.Options.Temperature = 0.7 // Default temperature
 	}
 
 	// Step 1: Load documents into context window
@@ -231,11 +231,110 @@ func (p *AgenticRAGProcessor) splitIntoSentences(text string) []string {
 	return result
 }
 
-// identifyRelevantChunks prompts the model to identify which chunks are relevant
+// identifyRelevantChunks uses LLM to identify which chunks are most relevant to the query
 func (p *AgenticRAGProcessor) identifyRelevantChunks(ctx context.Context, query string, chunks []DocumentChunk) ([]DocumentChunk, error) {
-	// For MVP, use simple keyword matching as a placeholder for LLM call
-	// In full implementation, this would be a prompt to the LLM
+	if len(chunks) == 0 {
+		return chunks, nil
+	}
 
+	// Create a prompt for the LLM to score chunk relevance
+	prompt := fmt.Sprintf(`You are an expert at analyzing document relevance. Given a query and a list of document chunks, 
+score each chunk from 0.0 to 1.0 based on how relevant it is to answering the query.
+
+Query: "%s"
+
+Document Chunks:
+`, query)
+
+	for i, chunk := range chunks {
+		prompt += fmt.Sprintf("\n[%d] %s", i, chunk.Content)
+	}
+
+	prompt += `
+
+Respond with a JSON array where each element has "index" (0-based chunk index) and "score" (0.0-1.0 relevance score).
+Only include chunks with score > 0.3. Order by relevance score (highest first).
+
+Example: [{"index": 2, "score": 0.9}, {"index": 0, "score": 0.7}]`
+
+	// Use genkit.Generate to get LLM response
+	model := p.config.Model
+	if model == nil {
+		// Use model by name if no model instance available
+		response, err := genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModelName(p.config.ModelName),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     0.1, // Low temperature for consistent scoring
+				MaxOutputTokens: 1000,
+			}),
+		)
+		if err != nil {
+			// Fallback to simple keyword matching
+			return p.fallbackRelevanceScoring(query, chunks), nil
+		}
+		responseText := response.Text()
+		return p.parseRelevanceResponse(responseText, chunks)
+	}
+
+	// Use model instance
+	response, err := genkit.Generate(ctx, p.config.Genkit,
+		ai.WithModel(model),
+		ai.WithPrompt(prompt),
+		ai.WithConfig(&ai.GenerationCommonConfig{
+			Temperature:     0.1, // Low temperature for consistent scoring
+			MaxOutputTokens: 1000,
+		}),
+	)
+	if err != nil {
+		// Fallback to simple keyword matching
+		return p.fallbackRelevanceScoring(query, chunks), nil
+	}
+
+	responseText := response.Text()
+	return p.parseRelevanceResponse(responseText, chunks)
+}
+
+// parseRelevanceResponse parses the LLM response for relevance scores
+func (p *AgenticRAGProcessor) parseRelevanceResponse(responseText string, chunks []DocumentChunk) ([]DocumentChunk, error) {
+	// Parse the LLM response
+	var relevanceScores []struct {
+		Index int     `json:"index"`
+		Score float64 `json:"score"`
+	}
+
+	if err := json.Unmarshal([]byte(responseText), &relevanceScores); err != nil {
+		// Fallback if JSON parsing fails
+		return p.fallbackRelevanceScoring("", chunks), nil
+	}
+
+	// Apply scores and filter relevant chunks
+	//
+	relevantChunks := make([]DocumentChunk, 0)
+	for _, score := range relevanceScores {
+		if score.Index >= 0 && score.Index < len(chunks) && score.Score > 0.3 {
+			chunk := chunks[score.Index]
+			chunk.RelevanceScore = score.Score
+			relevantChunks = append(relevantChunks, chunk)
+		}
+	}
+
+	// Sort by relevance score (highest first)
+	sort.Slice(relevantChunks, func(i, j int) bool {
+		return relevantChunks[i].RelevanceScore > relevantChunks[j].RelevanceScore
+	})
+
+	// Return top chunks (up to half for recursive refinement)
+	maxRelevant := len(chunks) / 2
+	if maxRelevant > len(relevantChunks) {
+		maxRelevant = len(relevantChunks)
+	}
+
+	return relevantChunks[:maxRelevant], nil
+}
+
+// fallbackRelevanceScoring provides simple keyword-based relevance scoring as a fallback
+func (p *AgenticRAGProcessor) fallbackRelevanceScoring(query string, chunks []DocumentChunk) []DocumentChunk {
 	relevantChunks := make([]DocumentChunk, 0)
 
 	for _, chunk := range chunks {
@@ -247,21 +346,17 @@ func (p *AgenticRAGProcessor) identifyRelevantChunks(ctx context.Context, query 
 	}
 
 	// Sort by relevance score (highest first)
-	for i := 0; i < len(relevantChunks)-1; i++ {
-		for j := i + 1; j < len(relevantChunks); j++ {
-			if relevantChunks[i].RelevanceScore < relevantChunks[j].RelevanceScore {
-				relevantChunks[i], relevantChunks[j] = relevantChunks[j], relevantChunks[i]
-			}
-		}
-	}
+	sort.Slice(relevantChunks, func(i, j int) bool {
+		return relevantChunks[i].RelevanceScore > relevantChunks[j].RelevanceScore
+	})
 
-	// Return top chunks (up to half of max chunks for recursive refinement)
+	// Return top chunks (up to half for recursive refinement)
 	maxRelevant := len(chunks) / 2
 	if maxRelevant > len(relevantChunks) {
 		maxRelevant = len(relevantChunks)
 	}
 
-	return relevantChunks[:maxRelevant], nil
+	return relevantChunks[:maxRelevant]
 }
 
 // calculateRelevanceScore calculates a simple relevance score
@@ -340,81 +435,188 @@ func (p *AgenticRAGProcessor) breakdownChunk(chunk DocumentChunk) []DocumentChun
 	return subChunks
 }
 
-// generateResponse generates the final response based on retrieved chunks
+// generateResponse generates the final response using LLM based on retrieved chunks
 func (p *AgenticRAGProcessor) generateResponse(ctx context.Context, query string, chunks []DocumentChunk, options AgenticRAGOptions) (string, int, error) {
-	// FIXME: For MVP, create a simple response by combining relevant chunks
-	// In full implementation, this would be a call to the LLM
-
 	if len(chunks) == 0 {
-		return "I couldn't find any relevant information to answer your query.", 0, nil
+		return "I don't have enough information to answer your question.", 0, nil
 	}
 
-	// Combine chunk contents
-	context := make([]string, len(chunks))
+	// Build context from relevant chunks
+	contextBuilder := strings.Builder{}
+	contextBuilder.WriteString("Based on the following relevant information:\n\n")
+
 	for i, chunk := range chunks {
-		context[i] = chunk.Content
+		contextBuilder.WriteString(fmt.Sprintf("Source %d:\n%s\n\n", i+1, chunk.Content))
 	}
 
-	// Create a simple response
-	response := fmt.Sprintf("Based on the available information:\n\n%s", strings.Join(context, "\n\n"))
+	// Create a sophisticated prompt for response generation
+	prompt := fmt.Sprintf(`You are an expert AI assistant that provides accurate, comprehensive answers based on provided context.
 
-	// Estimate token count (rough approximation: 1 token ≈ 4 characters)
-	tokenCount := len(response) / 4
+Context Information:
+%s
 
-	return response, tokenCount, nil
+User Question: %s
+
+Instructions:
+1. Answer the question using ONLY the information provided in the context
+2. Be comprehensive but concise
+3. If the context doesn't contain enough information to answer fully, state what you can answer and what information is missing
+4. Cite which sources support your statements (e.g., "According to Source 1...")
+5. If the question cannot be answered with the given context, clearly state this
+
+Answer:`, contextBuilder.String(), query)
+
+	// Generate response using LLM
+	var response *ai.ModelResponse
+	var err error
+
+	if p.config.Model != nil {
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModel(p.config.Model),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     float64(options.Temperature),
+				MaxOutputTokens: 2048,
+			}),
+		)
+	} else {
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModelName(p.config.ModelName),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     float64(options.Temperature),
+				MaxOutputTokens: 2048,
+			}),
+		)
+	}
+
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to generate response: %w", err)
+	}
+
+	// Count tokens used (approximation)
+	tokensUsed := len(strings.Fields(prompt)) + len(strings.Fields(response.Text()))
+
+	return response.Text(), tokensUsed, nil
 }
 
-// buildKnowledgeGraph builds a knowledge graph from the processed chunks
+// buildKnowledgeGraph extracts entities and relations from chunks using LLM
 func (p *AgenticRAGProcessor) buildKnowledgeGraph(ctx context.Context, chunks []DocumentChunk) (*KnowledgeGraph, error) {
-	if !p.config.KnowledgeGraph.Enabled {
+	if !p.config.KnowledgeGraph.Enabled || len(chunks) == 0 {
 		return nil, nil
 	}
 
-	// FIXME: For MVP, create a simple knowledge graph with basic entity extraction
-	entities := make([]Entity, 0)
-	relations := make([]Relation, 0)
+	// Combine chunk contents for analysis
+	var contentBuilder strings.Builder
+	for i, chunk := range chunks {
+		contentBuilder.WriteString(fmt.Sprintf("Document %d:\n%s\n\n", i+1, chunk.Content))
+	}
 
-	entityID := 0
-	relationID := 0
+	// Create prompt for knowledge extraction
+	entityTypes := strings.Join(p.config.KnowledgeGraph.EntityTypes, ", ")
+	relationTypes := strings.Join(p.config.KnowledgeGraph.RelationTypes, ", ")
 
-	// FIXME: Simple entity extraction using capitalized words (very basic)
-	for _, chunk := range chunks {
-		words := strings.Fields(chunk.Content)
-		for _, word := range words {
-			// Very simple entity detection: capitalized words that aren't common words
-			if len(word) > 2 && strings.Title(word) == word && !p.isCommonWord(word) {
-				entity := Entity{
-					ID:         fmt.Sprintf("entity_%d", entityID),
-					Name:       word,
-					Type:       "CONCEPT", // Default type for MVP
-					Confidence: 0.8,       // Default confidence
-				}
-				entities = append(entities, entity)
-				entityID++
-			}
+	prompt := fmt.Sprintf(`You are an expert knowledge graph extractor. Extract entities and relationships from the provided text.
+
+Text to analyze:
+%s
+
+Extract the following:
+
+ENTITIES (with types: %s):
+- Identify important entities and classify them
+- Include confidence score (0.0-1.0)
+- Only include entities with confidence > %.2f
+
+RELATIONS (with types: %s):
+- Identify relationships between extracted entities
+- Include confidence score (0.0-1.0)
+- Only include relations with confidence > %.2f
+
+Respond with JSON in this exact format:
+{
+  "entities": [
+    {"id": "entity_1", "name": "Entity Name", "type": "ENTITY_TYPE", "confidence": 0.95},
+    {"id": "entity_2", "name": "Another Entity", "type": "ENTITY_TYPE", "confidence": 0.87}
+  ],
+  "relations": [
+    {"id": "rel_1", "subject": "entity_1", "predicate": "RELATION_TYPE", "object": "entity_2", "confidence": 0.90}
+  ]
+}`,
+		contentBuilder.String(), entityTypes, p.config.KnowledgeGraph.MinConfidenceThreshold,
+		relationTypes, p.config.KnowledgeGraph.MinConfidenceThreshold)
+
+	// Generate knowledge graph using LLM
+	var response *ai.ModelResponse
+	var err error
+
+	if p.config.Model != nil {
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModel(p.config.Model),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     0.1, // Low temperature for consistent extraction
+				MaxOutputTokens: 2048,
+			}),
+		)
+	} else {
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModelName(p.config.ModelName),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     0.1, // Low temperature for consistent extraction
+				MaxOutputTokens: 2048,
+			}),
+		)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract knowledge graph: %w", err)
+	}
+
+	// Parse the LLM response
+	var kgResponse struct {
+		Entities  []Entity   `json:"entities"`
+		Relations []Relation `json:"relations"`
+	}
+
+	responseText := response.Text()
+	if err := json.Unmarshal([]byte(responseText), &kgResponse); err != nil {
+		// Return empty knowledge graph if parsing fails
+		return &KnowledgeGraph{
+			Entities:  []Entity{},
+			Relations: []Relation{},
+			Metadata: map[string]interface{}{
+				"extraction_error": err.Error(),
+				"raw_response":     responseText,
+			},
+		}, nil
+	}
+
+	// Filter by confidence threshold
+	filteredEntities := make([]Entity, 0)
+	for _, entity := range kgResponse.Entities {
+		if entity.Confidence >= p.config.KnowledgeGraph.MinConfidenceThreshold {
+			filteredEntities = append(filteredEntities, entity)
 		}
 	}
 
-	// FIXME: Create simple relations between consecutive entities (very basic)
-	for i := 0; i < len(entities)-1; i++ {
-		relation := Relation{
-			ID:         fmt.Sprintf("relation_%d", relationID),
-			Subject:    entities[i].ID,
-			Predicate:  "RELATED_TO",
-			Object:     entities[i+1].ID,
-			Confidence: 0.6,
+	filteredRelations := make([]Relation, 0)
+	for _, relation := range kgResponse.Relations {
+		if relation.Confidence >= p.config.KnowledgeGraph.MinConfidenceThreshold {
+			filteredRelations = append(filteredRelations, relation)
 		}
-		relations = append(relations, relation)
-		relationID++
 	}
 
 	return &KnowledgeGraph{
-		Entities:  entities,
-		Relations: relations,
+		Entities:  filteredEntities,
+		Relations: filteredRelations,
 		Metadata: map[string]interface{}{
-			"created_at":     time.Now(),
-			"entity_count":   len(entities),
-			"relation_count": len(relations),
+			"extraction_method": "llm_based",
+			"entity_types":      p.config.KnowledgeGraph.EntityTypes,
+			"relation_types":    p.config.KnowledgeGraph.RelationTypes,
+			"min_confidence":    p.config.KnowledgeGraph.MinConfidenceThreshold,
+			"created_at":        time.Now(),
 		},
 	}, nil
 }
@@ -441,67 +643,109 @@ func (p *AgenticRAGProcessor) isCommonWord(word string) bool {
 	return commonWords[word]
 }
 
-// verifyFacts verifies the factual accuracy of the generated answer
+// verifyFacts performs fact verification on the generated response using LLM
 func (p *AgenticRAGProcessor) verifyFacts(ctx context.Context, answer string, chunks []DocumentChunk) (*FactVerification, error) {
-	// For MVP, create a simple fact verification
-	// FIXME: In full implementation, this would involve sophisticated fact-checking
-
-	claims := make([]Claim, 0)
-
-	// Split answer into sentences as potential claims
-	sentences := p.splitIntoSentences(answer)
-
-	for _, sentence := range sentences {
-		// Simple verification: check if claim content appears in source chunks
-		verified := false
-		evidence := make([]string, 0)
-
-		for _, chunk := range chunks {
-			if strings.Contains(strings.ToLower(chunk.Content), strings.ToLower(sentence)) {
-				verified = true
-				evidence = append(evidence, chunk.ID)
-			}
-		}
-
-		status := "inconclusive"
-		confidence := 0.5
-
-		if verified {
-			status = "verified"
-			confidence = 0.8
-		}
-
-		claim := Claim{
-			Text:       sentence,
-			Status:     status,
-			Confidence: confidence,
-			Evidence:   evidence,
-		}
-		claims = append(claims, claim)
+	if len(chunks) == 0 {
+		return nil, nil
 	}
 
-	// Determine overall verification status
-	verifiedCount := 0
-	for _, claim := range claims {
-		if claim.Status == "verified" {
-			verifiedCount++
-		}
+	// Build source context for verification
+	var contextBuilder strings.Builder
+	contextBuilder.WriteString("Source documents:\n\n")
+	for i, chunk := range chunks {
+		contextBuilder.WriteString(fmt.Sprintf("Source %d:\n%s\n\n", i+1, chunk.Content))
 	}
 
-	overall := "unverified"
-	if verifiedCount == len(claims) {
-		overall = "verified"
-	} else if verifiedCount > 0 {
-		overall = "partially_verified"
+	// Create prompt for fact verification
+	prompt := fmt.Sprintf(`You are an expert fact-checker. Verify the factual accuracy of the given answer against the provided source documents.
+
+Source Context:
+%s
+
+Answer to verify:
+%s
+
+Task:
+1. Break down the answer into individual factual claims
+2. For each claim, verify it against the source documents
+3. Assign status: "verified" (supported by sources), "refuted" (contradicted by sources), or "inconclusive" (not addressed in sources)
+4. Provide confidence score (0.0-1.0)
+5. List evidence from sources that support or refute each claim
+
+Respond with JSON in this exact format:
+{
+  "claims": [
+    {
+      "text": "Specific claim text",
+      "status": "verified|refuted|inconclusive", 
+      "confidence": 0.95,
+      "evidence": ["Source 1: Supporting text", "Source 2: Additional evidence"]
+    }
+  ],
+  "overall": "verified|partially_verified|unverified"
+}`, contextBuilder.String(), answer)
+
+	// Generate fact verification using LLM
+	var response *ai.ModelResponse
+	var err error
+
+	if p.config.Model != nil {
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModel(p.config.Model),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     0.1, // Low temperature for consistent verification
+				MaxOutputTokens: 2048,
+			}),
+		)
+	} else {
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModelName(p.config.ModelName),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     0.1, // Low temperature for consistent verification
+				MaxOutputTokens: 2048,
+			}),
+		)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify facts: %w", err)
+	}
+
+	// Parse the LLM response
+	var verificationResponse struct {
+		Claims  []Claim `json:"claims"`
+		Overall string  `json:"overall"`
+	}
+
+	responseText := response.Text()
+	if err := json.Unmarshal([]byte(responseText), &verificationResponse); err != nil {
+		// Return basic verification if parsing fails
+		return &FactVerification{
+			Claims: []Claim{
+				{
+					Text:       answer,
+					Status:     "inconclusive",
+					Confidence: 0.5,
+					Evidence:   []string{"Fact verification parsing failed"},
+				},
+			},
+			Overall: "unverified",
+			Metadata: map[string]interface{}{
+				"verification_error": err.Error(),
+				"raw_response":       responseText,
+			},
+		}, nil
 	}
 
 	return &FactVerification{
-		Claims:  claims,
-		Overall: overall,
+		Claims:  verificationResponse.Claims,
+		Overall: verificationResponse.Overall,
 		Metadata: map[string]interface{}{
-			"verified_claims":    verifiedCount,
-			"total_claims":       len(claims),
-			"verification_ratio": float64(verifiedCount) / float64(len(claims)),
+			"verification_method": "llm_based",
+			"source_count":        len(chunks),
+			"verified_at":         time.Now(),
 		},
 	}, nil
 }

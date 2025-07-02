@@ -21,6 +21,18 @@ import (
 
 // RegisterPlugin registers the agentic RAG plugin with GenKit
 func RegisterPlugin(g *genkit.Genkit, config *AgenticRAGConfig) error {
+	if config == nil {
+		config = DefaultConfig()
+	}
+
+	// Set the GenKit instance in config
+	config.Genkit = g
+
+	// If ModelName is set but Model is nil, try to lookup the model
+	if config.ModelName != "" && config.Model == nil {
+		// The model will be looked up by name when needed
+	}
+
 	plugin := NewPlugin(config)
 	return plugin.Init(context.Background(), g)
 }

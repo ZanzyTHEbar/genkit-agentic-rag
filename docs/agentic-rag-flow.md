@@ -11,12 +11,19 @@ OpenAI's Agentic RAG Flow is a framework that combines retrieval-augmented gener
 3. **Prompt the model** for which chunks might contain relevant information.
 4. **Drill down** into the selected relevant chunks.
 5. **Recursively call this function** until we reach paragraph-level content.
-6. **Generate a response** based on the retrieved information.
-7. **Build Knowledge Graph** based on context
+6. **Build Knowledge Graph** based on context
    1. If memory is enabled
+   2. JSON structure
+   3. Custom prompt instructions
+7. **Build scratch pad**
+   1. If memory is enabled
+   2. markdown documents acting as "memory bank" between calls
+   3. compressed after write, uncompressed before read
+   4. custom prompt instructions
 8. **Verify the answer** for factual accuracy.
+9. **Generate a response** based on the retrieved information & context.
 
-- Advanced Prompt Engineering
+- Advanced Prompt Engineering techniques
 - Dynamic Prompt Templating and Chaining
 - Generate Custom Prompts
 - Send Prompt to LLM
