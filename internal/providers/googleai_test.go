@@ -80,7 +80,7 @@ func TestGoogleAIProvider_Initialize_MissingAPIKey(t *testing.T) {
 
 	// Configure the mock to return a specific error when New is called with these arguments
 	expectedErrorMessage := "Google AI API key is required"
-	mockErrorHandler.On("New", expectedErrorMessage, mock.AnythingOfType("map[string]interface{}")).Return(errors.New(expectedErrorMessage))
+	mockErrorHandler.On("New", expectedErrorMessage, mock.Anything).Return(errors.New(expectedErrorMessage))
 
 	provider := NewGoogleAIProvider(mockLogger, mockErrorHandler)
 	configMap := map[string]interface{}{
