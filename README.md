@@ -52,9 +52,7 @@ A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generati
 ```bash
 go get github.com/ZanzyTHEbar/genkit-agentic-rag
 ```
-
 ### Example Usage
-
 ```go
 package main
 
@@ -166,9 +164,7 @@ func main() {
 }
 
 func countVerifiedClaims(claims []plugin.Claim) int {
-    count := 0
-    for _, claim := range claims {
-        if claim.Status == "verified" {
+f claim.Status == "verified" {
             count++
         }
     }
