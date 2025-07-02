@@ -50,14 +50,32 @@ func (p *AgenticRAGPlugin) Init(ctx context.Context, g *genkit.Genkit) error {
 
 // registerFlows registers the agentic RAG flows
 func (p *AgenticRAGPlugin) registerFlows(ctx context.Context, g *genkit.Genkit) error {
-	// Main agentic RAG flow
-	genkit.DefineFlow(
+	// Main agentic RAG streaming flow using correct GenKit Go API
+	genkit.DefineStreamingFlow(
 		g,
 		"agenticRAG",
-		func(ctx context.Context, input AgenticRAGRequest) (*AgenticRAGResponse, error) {
-			return p.processor.Process(ctx, input)
+		func(ctx context.Context, input AgenticRAGRequest, cb func(context.Context, *AgenticRAGResponse) error) (*AgenticRAGResponse, error) {
+			// Use the processor to handle the full agentic RAG pipeline
+			response, err := p.processor.Process(ctx, input)
+			if err != nil {
+				return nil, err
+			}
+
+			// If streaming callback is provided, stream the response
+			if cb != nil {
+				if err := cb(ctx, response); err != nil {
+					return nil, err
+				}
+			}
+
+			return response, nil
 		},
 	)
+
+	// Also register a simple non-streaming flow for basic usage
+	genkit.DefineFlow(g, "agenticRAGSimple", func(ctx context.Context, input AgenticRAGRequest) (*AgenticRAGResponse, error) {
+		return p.processor.Process(ctx, input)
+	})
 
 	return nil
 }

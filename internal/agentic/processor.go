@@ -236,7 +236,6 @@ func (p *AgenticRAGProcessor) identifyRelevantChunks(ctx context.Context, query 
 	// For MVP, use simple keyword matching as a placeholder for LLM call
 	// In full implementation, this would be a prompt to the LLM
 
-	queryWords := strings.Fields(strings.ToLower(query))
 	relevantChunks := make([]DocumentChunk, 0)
 
 	for _, chunk := range chunks {
@@ -326,14 +325,14 @@ func (p *AgenticRAGProcessor) breakdownChunk(chunk DocumentChunk) []DocumentChun
 	}
 
 	subChunks := make([]DocumentChunk, 0, len(sentences))
-	for i, sentence := range sentences {
+	for idx, sentence := range sentences {
 		subChunk := DocumentChunk{
-			ID:         fmt.Sprintf("%s_sub_%d", chunk.ID, i),
+			ID:         fmt.Sprintf("%s_sub_%d", chunk.ID, idx),
 			Content:    sentence,
 			DocumentID: chunk.DocumentID,
-			ChunkIndex: chunk.ChunkIndex*100 + i, // Hierarchical indexing
-			StartIndex: chunk.StartIndex,         // Simplified for MVP
-			EndIndex:   chunk.EndIndex,           // Simplified for MVP
+			ChunkIndex: chunk.ChunkIndex*100 + idx, // Hierarchical indexing
+			StartIndex: chunk.StartIndex,           // Simplified for MVP
+			EndIndex:   chunk.EndIndex,             // Simplified for MVP
 		}
 		subChunks = append(subChunks, subChunk)
 	}
@@ -343,7 +342,7 @@ func (p *AgenticRAGProcessor) breakdownChunk(chunk DocumentChunk) []DocumentChun
 
 // generateResponse generates the final response based on retrieved chunks
 func (p *AgenticRAGProcessor) generateResponse(ctx context.Context, query string, chunks []DocumentChunk, options AgenticRAGOptions) (string, int, error) {
-	// For MVP, create a simple response by combining relevant chunks
+	// FIXME: For MVP, create a simple response by combining relevant chunks
 	// In full implementation, this would be a call to the LLM
 
 	if len(chunks) == 0 {
@@ -371,14 +370,14 @@ func (p *AgenticRAGProcessor) buildKnowledgeGraph(ctx context.Context, chunks []
 		return nil, nil
 	}
 
-	// For MVP, create a simple knowledge graph with basic entity extraction
+	// FIXME: For MVP, create a simple knowledge graph with basic entity extraction
 	entities := make([]Entity, 0)
 	relations := make([]Relation, 0)
 
 	entityID := 0
 	relationID := 0
 
-	// Simple entity extraction using capitalized words (very basic)
+	// FIXME: Simple entity extraction using capitalized words (very basic)
 	for _, chunk := range chunks {
 		words := strings.Fields(chunk.Content)
 		for _, word := range words {
@@ -396,7 +395,7 @@ func (p *AgenticRAGProcessor) buildKnowledgeGraph(ctx context.Context, chunks []
 		}
 	}
 
-	// Create simple relations between consecutive entities (very basic)
+	// FIXME: Create simple relations between consecutive entities (very basic)
 	for i := 0; i < len(entities)-1; i++ {
 		relation := Relation{
 			ID:         fmt.Sprintf("relation_%d", relationID),
@@ -445,14 +444,14 @@ func (p *AgenticRAGProcessor) isCommonWord(word string) bool {
 // verifyFacts verifies the factual accuracy of the generated answer
 func (p *AgenticRAGProcessor) verifyFacts(ctx context.Context, answer string, chunks []DocumentChunk) (*FactVerification, error) {
 	// For MVP, create a simple fact verification
-	// In full implementation, this would involve sophisticated fact-checking
+	// FIXME: In full implementation, this would involve sophisticated fact-checking
 
 	claims := make([]Claim, 0)
 
 	// Split answer into sentences as potential claims
 	sentences := p.splitIntoSentences(answer)
 
-	for i, sentence := range sentences {
+	for _, sentence := range sentences {
 		// Simple verification: check if claim content appears in source chunks
 		verified := false
 		evidence := make([]string, 0)

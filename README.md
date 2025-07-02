@@ -1,213 +1,210 @@
 # GenKit Handler - Agentic RAG Plugin
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)  
-[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)  
-[![Coverage Status](https://coveralls.io/repos/github/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)  
+[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)
+[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)
+[![Coverage Status](https://coveralls.io/repos/github.com/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generation (RAG) system following the OpenAI Agentic RAG Flow specification.
 
 ## Features
 
-✅ **Core Agentic RAG Flow** - Implements the 8-step agentic RAG process:
+- **Agentic RAG Flow**: Implements the 8-step agentic RAG process:
+  1. Load entire documents into context window
+  2. Chunk documents into manageable pieces (sentence boundaries)
+  3. Prompt model to identify relevant chunks
+  4. Recursively drill down into selected chunks
+  5. Generate responses from retrieved information
+  6. Build knowledge graphs (optional)
+  7. Verify answers for factual accuracy (optional)
+  8. Return structured response with metadata
+- **GenKit Integration**: Native Firebase GenKit plugin with flows and tools for chunking, scoring, and knowledge graph extraction
+- **Configurable**: Chunk size, recursive depth, knowledge graph, and fact verification options
+- **Observability**: Processing time, chunk stats, and recursive level tracking
 
-1. Load entire documents into context window with intelligent management
-2. Chunk documents into manageable pieces respecting sentence boundaries
-3. Prompt model to identify relevant chunks for queries
-4. Recursively drill down into selected chunks for granular information
-5. Generate responses based on retrieved information
-6. Build knowledge graphs from context (optional)
-7. Verify answers for factual accuracy (optional)
-8. Return structured response with metadata
+## Quick Start
 
-✅ **GenKit Integration** - Native Firebase GenKit plugin with:
-
-- Flow definitions for agentic RAG processing
-- Tool definitions for document chunking, relevance scoring, and knowledge graph extraction
-- Proper request/response types with JSON schema validation
-
-✅ **Configurable Processing** - Flexible configuration options:
-
-- Adjustable chunk sizes and overlap
-- Configurable recursive depth
-- Sentence boundary respect
-- Knowledge graph enablement
-- Fact verification options
-
-✅ **Knowledge Graph Construction** - Automatic entity and relation extraction:
-
-- Entity types: PERSON, ORGANIZATION, LOCATION, CONCEPT
-- Relation types: RELATED_TO, PART_OF, CAUSES, LOCATED_IN
-- Confidence scoring for entities and relations
-
-✅ **Observability** - Built-in metrics and monitoring:
-
-- Processing time tracking
-- Token usage monitoring
-- Chunk processing statistics
-- Recursive level trackingdler
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)  
-[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)  
-[![Coverage Status](https://coveralls.io/repos/github.com/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)  
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-GenKitHandler is a Go library and service framework designed to simplify interaction with multiple generative AI providers. It offers:
-
-- Flexible provider management (e.g., Google AI, TursoDB, custom integrations)
-- Primary/fallback ordering for high availability
-- Structured output support
-- Configuration via [Viper](https://github.com/spf13/viper)
-- Custom error handling with [errbuilder-go](https://github.com/ZanzyTHEbar/errbuilder-go)
-- UUID generation using [google/uuid](https://github.com/google/uuid)
-- Robust, table-driven tests with [testify](https://github.com/stretchr/testify)
-
----
-
-## Table of Contents
-
-- [Features](#features)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Quick Start](#quick-start)
-- [Usage](#usage)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Features
-
-- **Provider Management**: Register, initialize, and orchestrate multiple AI providers with fallback support.
-- **Structured Output**: Generate and parse JSON-like structured responses.
-- **Configuration Driven**: Centralized config using Viper, supporting YAML files and environment variables.
-- **Pluggable Architecture**: Easily extend or replace providers via the `AIProvider` interface.
-- **Custom Error Handling**: Build rich errors with stack traces using `errbuilder-go`.
-- **UUID & Logging**: Standardized identifiers and logging via `google/uuid` and domain-level logger.
-- **Comprehensive Testing**: Table-driven unit tests covering core logic and edge cases.
-
-## Installation
-
-Ensure you have Go 1.24+ installed.
+### Installation
 
 ```bash
-# Fetch the module
 go get github.com/ZanzyTHEbar/genkithandler
 ```
 
-Add to your project's `go.mod`:
-
-```go
-require github.com/ZanzyTHEbar/genkithandler v0.0.0-<latest>
-```
-
-## Configuration
-
-GenKitHandler uses [Viper](https://github.com/spf13/viper) for configuration. It will look for `config.yaml` in the following order:
-
-1. Current working directory
-2. `./config/` subfolder
-3. `$HOME/.genkithandler`
-4. `/etc/genkithandler`
-
-Example `config.yaml`:
-
-```yaml
-server:
-  host: "0.0.0.0"
-  port: 8080
-
-google_ai:
-  api_key: "YOUR_GOOGLE_AI_KEY"
-  default_model: "gemini-2.0-flash"
-  embedding_model: "text-embedding-004"
-# Additional provider and vector store settings...
-```
-
-Environment variables override file values. Prefix with `GENKITHANDLER_`, e.g., `GENKITHANDLER_GOOGLE_AI_API_KEY`.
-
-## Quick Start
+### Example Usage
 
 ```go
 package main
 
 import (
-  "context"
-  "log"
+	"context"
+	"fmt"
+	"log"
 
-  "github.com/ZanzyTHEbar/genkithandler/internal/providers"
-  "github.com/ZanzyTHEbar/genkithandler/pkg/config"
-  "github.com/ZanzyTHEbar/genkithandler/pkg/domain"
+	"github.com/firebase/genkit/go/genkit"
+	"github.com/ZanzyTHEbar/genkithandler"
+	"github.com/ZanzyTHEbar/genkithandler/internal/agentic"
 )
 
 func main() {
-  // Load configuration
-  cfgMgr := config.NewManager()
-  if err := cfgMgr.Load(); err != nil {
-    log.Fatalf("config load error: %v", err)
-  }
-  cfg := cfgMgr.Get()
+	ctx := context.Background()
+	g, err := genkit.Init(ctx)
+	if err != nil {
+		log.Fatalf("Failed to initialize GenKit: %v", err)
+	}
 
-  // Initialize provider manager
-  logger := domain.NewLogger(cfg.Logging)
-  errHandler := domain.NewErrorHandler()
-  mgr := providers.NewManager(logger, errHandler)
-  if err := mgr.Initialize(context.Background(), *cfg); err != nil {
-    log.Fatalf("provider init error: %v", err)
-  }
+	if err := genkithandler.InitializeAgenticRAGWithDefaults(g); err != nil {
+		log.Fatalf("Failed to initialize agentic RAG plugin: %v", err)
+	}
 
-  // Generate text
-  result, err := mgr.GenerateText(context.Background(), "Hello, AI!")
-  if err != nil {
-    log.Fatalf("generation error: %v", err)
-  }
-  log.Println("AI Response:", result)
+	fmt.Println("Agentic RAG plugin initialized successfully!")
+
+	config := genkithandler.DefaultAgenticRAGConfig()
+	processor := genkithandler.NewAgenticRAGProcessor(config)
+
+	request := agentic.AgenticRAGRequest{
+		Query: "What are the key components of artificial intelligence?",
+		Documents: []string{
+			"Artificial intelligence (AI) consists of several key components including machine learning, natural language processing, computer vision, robotics, and expert systems. Machine learning enables systems to learn from data without explicit programming. Natural language processing allows computers to understand and generate human language. Computer vision gives machines the ability to interpret visual information. Robotics combines AI with physical systems to create autonomous agents. Expert systems capture and utilize domain-specific knowledge to solve complex problems.",
+			"The field of AI has evolved significantly since its inception. Early AI focused on symbolic reasoning and rule-based systems. Modern AI emphasizes data-driven approaches, particularly deep learning and neural networks. These approaches have revolutionized applications in image recognition, speech processing, and game playing. The integration of big data and powerful computing resources has accelerated AI development across industries.",
+		},
+		Options: agentic.AgenticRAGOptions{
+			MaxChunks:              20,
+			RecursiveDepth:         3,
+			EnableKnowledgeGraph:   true,
+			EnableFactVerification: true,
+			Temperature:            0.7,
+		},
+	}
+
+	response, err := processor.Process(ctx, request)
+	if err != nil {
+		log.Fatalf("Failed to process agentic RAG request: %v", err)
+	}
+
+	fmt.Printf("\n=== Agentic RAG Response ===\n")
+	fmt.Printf("Answer: %s\n\n", response.Answer)
+	fmt.Printf("Processing Metadata:\n")
+	fmt.Printf("- Processing Time: %v\n", response.ProcessingMetadata.ProcessingTime)
+	fmt.Printf("- Chunks Processed: %d\n", response.ProcessingMetadata.ChunksProcessed)
+	fmt.Printf("- Recursive Levels: %d\n", response.ProcessingMetadata.RecursiveLevels)
+	fmt.Printf("- Model Calls: %d\n", response.ProcessingMetadata.ModelCalls)
+	fmt.Printf("- Tokens Used: %d\n\n", response.ProcessingMetadata.TokensUsed)
+
+	fmt.Printf("Relevant Chunks (%d):\n", len(response.RelevantChunks))
+	for i, chunk := range response.RelevantChunks {
+		fmt.Printf("  %d. %s (Score: %.3f)\n", i+1, chunk.Chunk.Content[:min(100, len(chunk.Chunk.Content))]+"...", chunk.Chunk.RelevanceScore)
+	}
+
+	if response.KnowledgeGraph != nil {
+		fmt.Printf("\nKnowledge Graph:\n")
+		fmt.Printf("- Entities: %d\n", len(response.KnowledgeGraph.Entities))
+		fmt.Printf("- Relations: %d\n", len(response.KnowledgeGraph.Relations))
+		fmt.Printf("\nTop Entities:\n")
+		for i, entity := range response.KnowledgeGraph.Entities {
+			if i >= 5 {
+				break
+			}
+			fmt.Printf("  - %s (%s) [%.2f]\n", entity.Name, entity.Type, entity.Confidence)
+		}
+	}
+
+	if response.FactVerification != nil {
+		fmt.Printf("\nFact Verification:\n")
+		fmt.Printf("- Overall Status: %s\n", response.FactVerification.Overall)
+		fmt.Printf("- Claims Verified: %d/%d\n",
+			countVerifiedClaims(response.FactVerification.Claims),
+			len(response.FactVerification.Claims))
+	}
+
+	fmt.Println("\n=== Example completed successfully! ===")
+}
+
+func countVerifiedClaims(claims []agentic.Claim) int {
+	count := 0
+	for _, claim := range claims {
+		if claim.Status == "verified" {
+			count++
+		}
+	}
+	return count
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 ```
 
-## Usage
+## API Reference
 
-1. **Register Custom Providers**: Implement the `AIProvider` interface and register via `RegisterProvider`.
-2. **Primary & Fallback**: Use `SetPrimaryProvider` and inspect `GetFallbackOrder` for fine-tuned control.
-3. **Structured Output**: Call `GenerateWithStructuredOutput` to unmarshal responses into typed structs.
-4. **Availability Checks**: Use `IsProviderAvailable` before generating.
+### Core Types
 
-## Testing
+#### `AgenticRAGRequest`
 
-```bash
-# Run all tests with coverage
-go test ./... -coverprofile=coverage.out
-# Format and vet
-go fmt ./... && go vet ./...
+```go
+type AgenticRAGRequest struct {
+    Query     string            `json:"query"`
+    Documents []string          `json:"documents,omitempty"`
+    Options   AgenticRAGOptions `json:"options,omitempty"`
+}
 ```
 
-Tests are table-driven and leverage `testify` for assertions.
+#### `AgenticRAGResponse`
 
-## Project Structure
-
-```text
-genkithandler.go         # entrypoint / package stub
-cmd/                     # (future) CLI or server entry points
-internal/providers/      # AI provider implementations
-pkg/config/              # Configuration management
-pkg/domain/              # Core domain types and utilities
-Makefile                 # Common build/test commands
-README.md                # Project overview
-LICENSE                  # MIT license
+```go
+type AgenticRAGResponse struct {
+    Answer             string             `json:"answer"`
+    RelevantChunks     []ProcessedChunk   `json:"relevant_chunks"`
+    KnowledgeGraph     *KnowledgeGraph    `json:"knowledge_graph,omitempty"`
+    FactVerification   *FactVerification  `json:"fact_verification,omitempty"`
+    ProcessingMetadata ProcessingMetadata `json:"processing_metadata"`
+}
 ```
 
-## Contributing
+### GenKit Flows
 
-Contributions are welcome! Please:
+- **`agenticRAG`** - Main agentic RAG processing flow
+  - Input: `AgenticRAGRequest`
+  - Output: `AgenticRAGResponse`
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes with clear messages
-4. Run tests and ensure coverage
-5. Submit a pull request
+### GenKit Tools
 
-Please follow our [Coding Guidelines](CONTRIBUTING.md) and ensure all new code is accompanied by table-driven tests.
+- **`chunkDocument`** - Document chunking tool
+- **`scoreRelevance`** - Relevance scoring tool
+- **`extractKnowledgeGraph`** - Knowledge graph extraction tool
+
+## Development Status
+
+This is a **Minimal Viable Prototype (MVP)** implementation that provides:
+
+- Core agentic RAG flow according to specification
+- GenKit plugin integration
+- Document chunking with sentence boundary respect
+- Recursive chunk refinement
+- Basic knowledge graph construction
+- Simple fact verification
+- Comprehensive observability metrics
+
+### Limitations (To Be Implemented)
+
+- Real LLM integration (currently uses placeholder logic)
+- Advanced prompt engineering and templating
+- Vector embedding and similarity search
+- External fact verification sources
+- Multi-agent orchestration
+- Streaming responses
+- Advanced error handling and retry logic
+
+## Example
+
+See [`example/main.go`](example/main.go) for a complete working example.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+Licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests for any improvements.
