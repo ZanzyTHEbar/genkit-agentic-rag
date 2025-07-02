@@ -1,0 +1,68 @@
+---
+model: googleai/gemini-2.5-flash
+config:
+  temperature: 0.1
+  maxOutputTokens: 1200
+input:
+  schema:
+    query: string
+    chunks: 
+      type: array
+      items: string
+    max_chunks?: integer
+  default:
+    max_chunks: 10
+output:
+  schema:
+    chunks:
+      type: array
+      items:
+        chunk_index: integer
+        relevance_score: number
+        reasoning: string
+---
+
+{{role "system"}}
+{{>_system_persona task_type="precise document relevance analysis"}}
+
+You use strict criteria and conservative scoring to ensure only the most relevant content is prioritized. You err on the side of caution to maintain high precision.
+
+{{role "user"}}
+Analyze document chunks for relevance to the query using strict criteria.
+
+**Query:** {{query}}
+
+**Document Chunks:**
+{{#each chunks}}
+**Chunk {{@index}}:**
+{{this}}
+
+{{/each}}
+
+{{>_json_instructions instructions=(array 
+  "Apply strict relevance criteria - be conservative with scores"
+  "Score 0.9+ only for directly answering the query"
+  "Score 0.7-0.8 for highly relevant supporting information" 
+  "Score 0.5-0.6 for relevant context or background"
+  "Score below 0.5 for tangentially related content"
+  "Prioritize precision over recall")}}
+
+**Strict Scoring Criteria:**
+- **0.9-1.0**: Directly answers the query with key information
+- **0.7-0.8**: Highly relevant supporting details
+- **0.5-0.6**: Relevant context or background information
+- **0.3-0.4**: Tangentially related content
+- **0.0-0.2**: Not relevant to the query
+
+**JSON Output Schema:**
+```json
+{
+  "chunks": [
+    {
+      "chunk_index": 0,
+      "relevance_score": 0.85,
+      "reasoning": "Conservative explanation of relevance"
+    }
+  ]
+}
+```

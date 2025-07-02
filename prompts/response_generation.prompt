@@ -1,0 +1,53 @@
+---
+model: googleai/gemini-2.5-flash
+config:
+  temperature: 0.7
+  maxOutputTokens: 2000
+input:
+  schema:
+    query: string
+    context_chunks: 
+      type: array
+      items:
+        content: string
+        source: string
+        relevance_score: number
+    enable_citations?: boolean
+  default:
+    enable_citations: true
+output:
+  schema:
+    answer: string
+    sources_used: 
+      type: array
+      items: string
+    confidence_score: number
+---
+
+{{role "system"}}
+{{>_system_persona task_type="comprehensive answer generation"}}
+
+You provide accurate, well-structured answers based solely on the provided context. You excel at synthesizing information from multiple sources while maintaining accuracy and providing proper citations.
+
+{{role "user"}}
+**Query:** {{query}}
+
+**Context Information:**
+{{#each context_chunks}}
+**Source {{@index}} (Relevance: {{relevance_score}}):**
+{{content}}
+{{#if source}}*Source: {{source}}*{{/if}}
+
+{{/each}}
+
+**Instructions:**
+1. Answer the query using ONLY the provided context information
+2. Be comprehensive but concise
+3. {{#if enable_citations}}Cite sources using "According to Source X..." format{{/if}}
+4. If the context is insufficient, clearly state the limitations
+5. Synthesize information from multiple sources when relevant
+6. Maintain a confident but appropriate tone
+
+**Important:** Do not use information outside the provided context. If you cannot answer fully based on the context, explain what additional information would be needed.
+
+Provide your response as a clear, well-structured answer that directly addresses the query.

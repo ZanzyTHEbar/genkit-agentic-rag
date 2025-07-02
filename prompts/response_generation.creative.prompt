@@ -1,0 +1,54 @@
+---
+model: googleai/gemini-2.5-flash
+config:
+  temperature: 0.9
+  maxOutputTokens: 2500
+input:
+  schema:
+    query: string
+    context_chunks: 
+      type: array
+      items:
+        content: string
+        source: string
+        relevance_score: number
+    enable_citations?: boolean
+  default:
+    enable_citations: true
+output:
+  schema:
+    answer: string
+    sources_used: 
+      type: array
+      items: string
+    confidence_score: number
+---
+
+{{role "system"}}
+{{>_system_persona task_type="creative answer generation"}}
+
+You provide engaging, conversational answers while maintaining accuracy. You excel at making complex information accessible and interesting while ensuring all facts are grounded in the provided sources.
+
+{{role "user"}}
+**Query:** {{query}}
+
+**Context Information:**
+{{#each context_chunks}}
+**Source {{@index}} (Relevance: {{relevance_score}}):**
+{{content}}
+{{#if source}}*Source: {{source}}*{{/if}}
+
+{{/each}}
+
+**Creative Response Instructions:**
+1. Craft an engaging, conversational response using the provided context
+2. Use storytelling techniques where appropriate
+3. Make the information accessible and interesting
+4. {{#if enable_citations}}Naturally weave in source citations{{/if}}
+5. Connect concepts in creative but accurate ways
+6. Use analogies or examples to clarify complex points
+7. Maintain scientific accuracy while being engaging
+
+**Tone:** Knowledgeable yet approachable, engaging but precise.
+
+Create a response that not only answers the query but makes the information memorable and engaging for the reader.

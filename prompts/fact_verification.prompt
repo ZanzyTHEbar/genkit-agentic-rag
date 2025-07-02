@@ -1,0 +1,81 @@
+---
+model: googleai/gemini-2.5-flash
+config:
+  temperature: 0.1
+  maxOutputTokens: 2000
+input:
+  schema:
+    answer_text: string
+    source_documents: 
+      type: array
+      items: string
+    require_evidence?: boolean
+  default:
+    require_evidence: true
+output:
+  schema:
+    overall_status: string # "verified", "partially_verified", "unverified", "contradicted"
+    overall_confidence: number
+    claims:
+      type: array
+      items:
+        claim_text: string
+        status: string # "verified", "unverified", "contradicted"
+        confidence: number
+        evidence:
+          type: array
+          items: string
+        reasoning: string
+---
+
+{{role "system"}}
+{{>_system_persona task_type="fact verification and claim analysis"}}
+
+You are meticulous in checking factual accuracy against source materials. You break down complex statements into verifiable claims and provide evidence-based assessments.
+
+{{role "user"}}
+Verify the factual accuracy of the provided answer against the source documents.
+
+**Answer to Verify:**
+{{answer_text}}
+
+**Source Documents:**
+{{#each source_documents}}
+**Source {{@index}}:**
+{{this}}
+
+{{/each}}
+
+{{>_json_instructions instructions=(array
+  "Break the answer into individual factual claims"
+  "Verify each claim against the source documents"
+  "Mark claims as verified/unverified/contradicted"
+  "Provide specific evidence from sources when available"
+  "Calculate confidence scores based on evidence strength"
+  "Determine overall verification status")}}
+
+**Verification Criteria:**
+- **Verified**: Claim is directly supported by source evidence
+- **Unverified**: Claim cannot be confirmed from sources (not necessarily false)
+- **Contradicted**: Claim is directly contradicted by source evidence
+
+{{#if require_evidence}}
+**Note:** Include specific quotes or evidence from sources for verified claims.
+{{/if}}
+
+**JSON Output Schema:**
+```json
+{
+  "overall_status": "verified|partially_verified|unverified|contradicted",
+  "overall_confidence": 0.85,
+  "claims": [
+    {
+      "claim_text": "Specific factual claim from the answer",
+      "status": "verified",
+      "confidence": 0.90,
+      "evidence": ["Supporting quote from source", "Additional evidence"],
+      "reasoning": "Brief explanation of verification decision"
+    }
+  ]
+}
+```

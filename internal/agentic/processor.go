@@ -40,11 +40,73 @@ func DefaultConfig() *AgenticRAGConfig {
 		},
 		KnowledgeGraph: KnowledgeGraphConfig{
 			Enabled:                true,
-			EntityTypes:            []string{"PERSON", "ORGANIZATION", "LOCATION", "CONCEPT"},
-			RelationTypes:          []string{"RELATED_TO", "PART_OF", "CAUSES", "LOCATED_IN"},
+			EntityTypes:            []string{"PERSON", "ORGANIZATION", "LOCATION", "CONCEPT", "TECHNOLOGY", "EVENT"},
+			RelationTypes:          []string{"WORKS_FOR", "LOCATED_IN", "FOUNDED", "DEVELOPS", "USES", "RELATED_TO"},
 			MinConfidenceThreshold: 0.7,
 		},
+		FactVerification: FactVerificationConfig{
+			Enabled:            true,
+			RequireEvidence:    true,
+			MinConfidenceScore: 0.7,
+		},
+		Prompts: PromptsConfig{
+			Directory:                 "./prompts",
+			RelevanceScoringPrompt:    "relevance_scoring",
+			ResponseGenerationPrompt:  "response_generation",
+			KnowledgeExtractionPrompt: "knowledge_extraction",
+			FactVerificationPrompt:    "fact_verification",
+			Variants:                  make(map[string]string),
+			CustomHelpers:             true,
+		},
 	}
+}
+
+// initializePrompts sets up the prompt system with custom helpers
+func (p *AgenticRAGProcessor) initializePrompts(ctx context.Context) error {
+	if p.config.Genkit == nil {
+		return fmt.Errorf("GenKit instance not provided in config")
+	}
+
+	g := p.config.Genkit
+
+	// Register custom helpers for prompt templates
+	if p.config.Prompts.CustomHelpers {
+		// Helper to create arrays in templates
+		genkit.DefineHelper(g, "array", func(items ...interface{}) []interface{} {
+			return items
+		})
+
+		// Helper to format confidence scores
+		genkit.DefineHelper(g, "confidence", func(score float64) string {
+			return fmt.Sprintf("%.2f", score)
+		})
+
+		// Helper to truncate text with ellipsis
+		genkit.DefineHelper(g, "truncate", func(text string, length int) string {
+			if len(text) <= length {
+				return text
+			}
+			return text[:length] + "..."
+		})
+
+		// Helper to join array elements
+		genkit.DefineHelper(g, "join", func(items []string, separator string) string {
+			return strings.Join(items, separator)
+		})
+
+		// Helper to format entity types
+		genkit.DefineHelper(g, "entityTypes", func(types []string) string {
+			if len(types) == 0 {
+				return ""
+			}
+			if len(types) == 1 {
+				return types[0]
+			}
+			return strings.Join(types[:len(types)-1], ", ") + " and " + types[len(types)-1]
+		})
+	}
+
+	return nil
 }
 
 // Process executes the agentic RAG flow according to the specification
@@ -237,6 +299,56 @@ func (p *AgenticRAGProcessor) identifyRelevantChunks(ctx context.Context, query 
 		return chunks, nil
 	}
 
+	// Initialize prompts if not done already
+	if err := p.initializePrompts(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize prompts: %w", err)
+	}
+
+	// Prepare chunk content for prompt
+	chunkTexts := make([]string, len(chunks))
+	for i, chunk := range chunks {
+		chunkTexts[i] = chunk.Content
+	}
+
+	// Get the prompt variant to use (default or configured variant)
+	promptName := p.config.Prompts.RelevanceScoringPrompt
+	if variant, exists := p.config.Prompts.Variants["relevance_scoring"]; exists {
+		promptName = fmt.Sprintf("%s.%s", promptName, variant)
+	}
+
+	// Lookup the dotprompt
+	relevancePrompt := genkit.LookupPrompt(p.config.Genkit, promptName)
+	if relevancePrompt == nil {
+		// Fallback to hardcoded prompt if dotprompt not found
+		return p.identifyRelevantChunksFallback(ctx, query, chunks)
+	}
+
+	// Execute the prompt with proper input
+	response, err := relevancePrompt.Execute(ctx,
+		ai.WithInput(map[string]any{
+			"query":      query,
+			"chunks":     chunkTexts,
+			"max_chunks": p.config.Processing.DefaultMaxChunks,
+		}),
+	)
+	if err != nil {
+		// Fallback to simple scoring if LLM fails
+		return p.fallbackRelevanceScoring(query, chunks), nil
+	}
+
+	// Parse the structured response
+	var responseData map[string]any
+	if err := response.Output(&responseData); err != nil {
+		// Fallback if parsing fails
+		return p.fallbackRelevanceScoring(query, chunks), nil
+	}
+
+	// Extract chunk scores from response
+	return p.parseRelevanceResponseData(responseData, chunks)
+}
+
+// identifyRelevantChunksFallback provides a fallback when dotprompt is not available
+func (p *AgenticRAGProcessor) identifyRelevantChunksFallback(ctx context.Context, query string, chunks []DocumentChunk) ([]DocumentChunk, error) {
 	// Create a prompt for the LLM to score chunk relevance
 	prompt := fmt.Sprintf(`You are an expert at analyzing document relevance. Given a query and a list of document chunks, 
 score each chunk from 0.0 to 1.0 based on how relevant it is to answering the query.
@@ -259,9 +371,12 @@ Example: [{"index": 2, "score": 0.9}, {"index": 0, "score": 0.7}]`
 
 	// Use genkit.Generate to get LLM response
 	model := p.config.Model
+	var response *ai.ModelResponse
+	var err error
+
 	if model == nil {
 		// Use model by name if no model instance available
-		response, err := genkit.Generate(ctx, p.config.Genkit,
+		response, err = genkit.Generate(ctx, p.config.Genkit,
 			ai.WithModelName(p.config.ModelName),
 			ai.WithPrompt(prompt),
 			ai.WithConfig(&ai.GenerationCommonConfig{
@@ -269,30 +384,72 @@ Example: [{"index": 2, "score": 0.9}, {"index": 0, "score": 0.7}]`
 				MaxOutputTokens: 1000,
 			}),
 		)
-		if err != nil {
-			// Fallback to simple keyword matching
-			return p.fallbackRelevanceScoring(query, chunks), nil
-		}
-		responseText := response.Text()
-		return p.parseRelevanceResponse(responseText, chunks)
+	} else {
+		// Use model instance
+		response, err = genkit.Generate(ctx, p.config.Genkit,
+			ai.WithModel(model),
+			ai.WithPrompt(prompt),
+			ai.WithConfig(&ai.GenerationCommonConfig{
+				Temperature:     0.1, // Low temperature for consistent scoring
+				MaxOutputTokens: 1000,
+			}),
+		)
 	}
 
-	// Use model instance
-	response, err := genkit.Generate(ctx, p.config.Genkit,
-		ai.WithModel(model),
-		ai.WithPrompt(prompt),
-		ai.WithConfig(&ai.GenerationCommonConfig{
-			Temperature:     0.1, // Low temperature for consistent scoring
-			MaxOutputTokens: 1000,
-		}),
-	)
 	if err != nil {
-		// Fallback to simple keyword matching
+		// Final fallback to simple keyword matching
 		return p.fallbackRelevanceScoring(query, chunks), nil
 	}
 
 	responseText := response.Text()
 	return p.parseRelevanceResponse(responseText, chunks)
+}
+
+// parseRelevanceResponseData parses structured response data from dotprompt
+func (p *AgenticRAGProcessor) parseRelevanceResponseData(responseData map[string]any, chunks []DocumentChunk) ([]DocumentChunk, error) {
+	chunksData, ok := responseData["chunks"]
+	if !ok {
+		return p.fallbackRelevanceScoring("", chunks), nil
+	}
+
+	chunksArray, ok := chunksData.([]any)
+	if !ok {
+		return p.fallbackRelevanceScoring("", chunks), nil
+	}
+
+	relevantChunks := make([]DocumentChunk, 0)
+
+	for _, chunkData := range chunksArray {
+		chunkMap, ok := chunkData.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		indexFloat, ok := chunkMap["chunk_index"].(float64)
+		if !ok {
+			continue
+		}
+		index := int(indexFloat)
+
+		scoreFloat, ok := chunkMap["relevance_score"].(float64)
+		if !ok {
+			continue
+		}
+
+		// Validate index and score
+		if index >= 0 && index < len(chunks) && scoreFloat >= 0.3 {
+			chunk := chunks[index]
+			chunk.RelevanceScore = scoreFloat
+			relevantChunks = append(relevantChunks, chunk)
+		}
+	}
+
+	// Sort by relevance score (highest first)
+	sort.Slice(relevantChunks, func(i, j int) bool {
+		return relevantChunks[i].RelevanceScore > relevantChunks[j].RelevanceScore
+	})
+
+	return relevantChunks, nil
 }
 
 // parseRelevanceResponse parses the LLM response for relevance scores

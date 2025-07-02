@@ -1,0 +1,59 @@
+---
+model: googleai/gemini-2.5-flash
+config:
+  temperature: 0.3
+  maxOutputTokens: 1500
+input:
+  schema:
+    query: string
+    chunks: 
+      type: array
+      items: string
+    max_chunks?: integer
+  default:
+    max_chunks: 10
+output:
+  schema:
+    chunks:
+      type: array
+      items:
+        chunk_index: integer
+        relevance_score: number
+        reasoning: string
+---
+
+{{role "system"}}
+{{>_system_persona task_type="document relevance analysis"}}
+
+{{role "user"}}
+Given the following query and document chunks, analyze each chunk's relevance to the query and provide a relevance score between 0.0 and 1.0.
+
+**Query:** {{query}}
+
+**Document Chunks:**
+{{#each chunks}}
+**Chunk {{@index}}:**
+{{this}}
+
+{{/each}}
+
+{{>_json_instructions instructions=(array 
+  "Analyze each chunk's semantic relevance to the query"
+  "Consider both direct matches and conceptual relationships" 
+  "Score 0.8+ for highly relevant content"
+  "Score 0.5-0.7 for moderately relevant content"
+  "Score below 0.5 for marginally relevant content"
+  "Provide brief reasoning for each score")}}
+
+**JSON Output Schema:**
+```json
+{
+  "chunks": [
+    {
+      "chunk_index": 0,
+      "relevance_score": 0.85,
+      "reasoning": "Brief explanation of relevance"
+    }
+  ]
+}
+```

@@ -113,11 +113,13 @@ type ProcessingMetadata struct {
 
 // AgenticRAGConfig contains configuration for the agentic RAG system
 type AgenticRAGConfig struct {
-	Genkit         *genkit.Genkit       `json:"-"`          // GenKit instance (not serialized)
-	Model          ai.Model             `json:"-"`          // Model instance (not serialized)
-	ModelName      string               `json:"model_name"` // Model name for serialization
-	Processing     ProcessingConfig     `json:"processing"`
-	KnowledgeGraph KnowledgeGraphConfig `json:"knowledge_graph"`
+	Genkit           *genkit.Genkit         `json:"-"`          // GenKit instance (not serialized)
+	Model            ai.Model               `json:"-"`          // Model instance (not serialized)
+	ModelName        string                 `json:"model_name"` // Model name for serialization
+	Processing       ProcessingConfig       `json:"processing"`
+	KnowledgeGraph   KnowledgeGraphConfig   `json:"knowledge_graph"`
+	FactVerification FactVerificationConfig `json:"fact_verification"`
+	Prompts          PromptsConfig          `json:"prompts"`
 }
 
 // ModelConfig contains model configuration
@@ -143,6 +145,24 @@ type KnowledgeGraphConfig struct {
 	EntityTypes            []string `json:"entity_types"`
 	RelationTypes          []string `json:"relation_types"`
 	MinConfidenceThreshold float64  `json:"min_confidence_threshold"`
+}
+
+// FactVerificationConfig contains fact verification configuration
+type FactVerificationConfig struct {
+	Enabled            bool    `json:"enabled"`
+	RequireEvidence    bool    `json:"require_evidence"`
+	MinConfidenceScore float64 `json:"min_confidence_score"`
+}
+
+// PromptsConfig contains prompt configuration
+type PromptsConfig struct {
+	Directory                 string            `json:"directory"`                   // Directory containing .prompt files
+	RelevanceScoringPrompt    string            `json:"relevance_scoring_prompt"`    // Name of relevance scoring prompt
+	ResponseGenerationPrompt  string            `json:"response_generation_prompt"`  // Name of response generation prompt
+	KnowledgeExtractionPrompt string            `json:"knowledge_extraction_prompt"` // Name of knowledge extraction prompt
+	FactVerificationPrompt    string            `json:"fact_verification_prompt"`    // Name of fact verification prompt
+	Variants                  map[string]string `json:"variants,omitempty"`          // Prompt variants for A/B testing
+	CustomHelpers             bool              `json:"custom_helpers"`              // Whether to register custom helpers
 }
 
 // Tool request/response types

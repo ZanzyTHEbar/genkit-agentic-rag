@@ -35,6 +35,14 @@ func (p *AgenticRAGPlugin) Name() string {
 
 // Init initializes the plugin with GenKit
 func (p *AgenticRAGPlugin) Init(ctx context.Context, g *genkit.Genkit) error {
+	// Store GenKit instance in config for processor access
+	p.config.Genkit = g
+
+	// Initialize prompts and custom helpers
+	if err := p.processor.initializePrompts(ctx); err != nil {
+		return fmt.Errorf("failed to initialize prompts: %w", err)
+	}
+
 	// Register the main agentic RAG flow
 	if err := p.registerFlows(ctx, g); err != nil {
 		return fmt.Errorf("failed to register flows: %w", err)

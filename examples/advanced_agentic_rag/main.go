@@ -14,31 +14,51 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// Initialize GenKit with Google AI plugin
+	// Create advanced agentic RAG configuration with dotprompt support
+	config := &agentic.AgenticRAGConfig{
+		ModelName: "googleai/gemini-2.5-flash",
+		Processing: agentic.ProcessingConfig{
+			DefaultChunkSize:      800, // Smaller chunks for better precision
+			DefaultMaxChunks:      25,  // More chunks for comprehensive analysis
+			DefaultRecursiveDepth: 4,   // Deeper recursive analysis
+			RespectSentences:      true,
+		},
+		KnowledgeGraph: agentic.KnowledgeGraphConfig{
+			Enabled:                true,
+			EntityTypes:            []string{"PERSON", "ORGANIZATION", "TECHNOLOGY", "CONCEPT", "EVENT", "LOCATION"},
+			RelationTypes:          []string{"DEVELOPS", "USES", "FOUNDED", "LOCATED_IN", "WORKS_FOR", "INVENTED"},
+			MinConfidenceThreshold: 0.8, // Higher confidence threshold for quality
+		},
+		FactVerification: agentic.FactVerificationConfig{
+			Enabled:              true,
+			RequireEvidence:      true,
+			MinConfidenceScore:   0.75,
+		},
+		Prompts: agentic.PromptsConfig{
+			Directory:                 "../../prompts", // Path to prompts from example directory
+			RelevanceScoringPrompt:    "relevance_scoring",
+			ResponseGenerationPrompt:  "response_generation",
+			KnowledgeExtractionPrompt: "knowledge_extraction",
+			FactVerificationPrompt:    "fact_verification",
+			Variants: map[string]string{
+				"relevance_scoring": "strict", // Use strict variant for higher precision
+				"response_generation": "creative", // Use creative variant for engaging responses
+			},
+			CustomHelpers: true,
+		},
+	}
+
+	// Initialize GenKit with Google AI plugin and prompts support
 	g, err := genkit.Init(ctx,
 		genkit.WithPlugins(&googlegenai.GoogleAI{}),
+		genkit.WithPromptDir(config.Prompts.Directory),
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize GenKit: %v", err)
 	}
 
-	// Create advanced agentic RAG configuration
-	config := &agentic.AgenticRAGConfig{
-		Genkit:    g,
-		ModelName: "googleai/gemini-2.5-flash",
-		Processing: agentic.ProcessingConfig{
-			DefaultChunkSize:      800, // Smaller chunks for better precision
-			DefaultMaxChunks:      25,  // More chunks for comprehensive analysis
-			DefaultRecursiveDepth: 4,   // Deeper recursion for thorough drilling
-			RespectSentences:      true,
-		},
-		KnowledgeGraph: agentic.KnowledgeGraphConfig{
-			Enabled:                true,
-			EntityTypes:            []string{"PERSON", "ORGANIZATION", "LOCATION", "CONCEPT", "EVENT", "TECHNOLOGY"},
-			RelationTypes:          []string{"WORKS_FOR", "LOCATED_IN", "FOUNDED", "DEVELOPED", "COLLABORATED_WITH", "CAUSED", "INFLUENCED"},
-			MinConfidenceThreshold: 0.8, // Higher threshold for better quality
-		},
-	}
+	// Store GenKit instance in config
+	config.Genkit = g
 
 	// Optional: Set a specific model instance if available
 	model := genkit.LookupModel(g, "googleai", "gemini-2.5-flash")

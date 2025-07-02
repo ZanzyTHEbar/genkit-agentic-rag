@@ -8,6 +8,9 @@ OpenAI's Agentic RAG Flow is a framework that combines retrieval-augmented gener
    1. Logic to determine the selected models context window
    2. Appropriately and intelligently manage context window using advanced prompting techniques
 2. **Chunk the Document** into 20 chunks that respect sentence boundaries.
+   1. Late Chunking Strategy
+   2. Genkit Embedding API
+   3. Turso Driver for storing Vectors & Semantic information & Metadata
 3. **Prompt the model** for which chunks might contain relevant information.
 4. **Drill down** into the selected relevant chunks.
 5. **Recursively call this function** until we reach paragraph-level content.
@@ -21,7 +24,7 @@ OpenAI's Agentic RAG Flow is a framework that combines retrieval-augmented gener
    3. compressed after write, uncompressed before read
    4. custom prompt instructions
 8. **Verify the answer** for factual accuracy.
-9. **Generate a response** based on the retrieved information & context.
+9.  **Generate a response** based on the retrieved information & context.
 
 - Advanced Prompt Engineering techniques
 - Dynamic Prompt Templating and Chaining

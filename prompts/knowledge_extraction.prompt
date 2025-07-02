@@ -1,0 +1,91 @@
+---
+model: googleai/gemini-2.5-flash
+config:
+  temperature: 0.2
+  maxOutputTokens: 2500
+input:
+  schema:
+    text_chunks: 
+      type: array
+      items: string
+    entity_types: 
+      type: array
+      items: string
+    relation_types: 
+      type: array
+      items: string
+    min_confidence?: number
+  default:
+    entity_types: ["PERSON", "ORGANIZATION", "LOCATION", "CONCEPT", "TECHNOLOGY", "EVENT"]
+    relation_types: ["WORKS_FOR", "LOCATED_IN", "FOUNDED", "DEVELOPS", "USES", "RELATED_TO"]
+    min_confidence: 0.7
+output:
+  schema:
+    entities:
+      type: array
+      items:
+        name: string
+        type: string
+        confidence: number
+        mentions:
+          type: array
+          items: string
+    relations:
+      type: array
+      items:
+        from_entity: string
+        to_entity: string
+        relation_type: string
+        confidence: number
+        evidence: string
+---
+
+{{role "system"}}
+{{>_system_persona task_type="knowledge graph extraction"}}
+
+You specialize in identifying entities and relationships in text to build structured knowledge graphs. You have expertise in named entity recognition, relationship extraction, and semantic analysis.
+
+{{role "user"}}
+Extract entities and relationships from the provided text to build a knowledge graph.
+
+**Text Content:**
+{{#each text_chunks}}
+**Chunk {{@index}}:**
+{{this}}
+
+{{/each}}
+
+**Entity Types to Extract:** {{#each entity_types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+**Relation Types to Identify:** {{#each relation_types}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+
+{{>_json_instructions instructions=(array
+  "Extract only entities with confidence ≥ " min_confidence
+  "Identify clear, factual relationships between entities"
+  "Provide specific evidence text for each relationship"
+  "Include multiple mentions of the same entity if found"
+  "Use the specified entity and relation types only"
+  "Ensure entity names are normalized (consistent naming)")}}
+
+**JSON Output Schema:**
+```json
+{
+  "entities": [
+    {
+      "name": "Entity Name",
+      "type": "ENTITY_TYPE",
+      "confidence": 0.85,
+      "mentions": ["mention 1", "mention 2"]
+    }
+  ],
+  "relations": [
+    {
+      "from_entity": "Entity A",
+      "to_entity": "Entity B", 
+      "relation_type": "RELATION_TYPE",
+      "confidence": 0.80,
+      "evidence": "Text evidence supporting this relationship"
+    }
+  ]
+}
+```

@@ -4,6 +4,8 @@
 package genkithandler
 
 import (
+	"context"
+
 	"github.com/firebase/genkit/go/genkit"
 
 	"github.com/ZanzyTHEbar/genkithandler/internal/agentic"
@@ -27,4 +29,33 @@ func NewAgenticRAGProcessor(config *agentic.AgenticRAGConfig) *agentic.AgenticRA
 // DefaultAgenticRAGConfig returns a default configuration for the agentic RAG system
 func DefaultAgenticRAGConfig() *agentic.AgenticRAGConfig {
 	return agentic.DefaultConfig()
+}
+
+// InitializeAgenticRAGWithPrompts initializes GenKit with prompts directory and the agentic RAG plugin
+func InitializeAgenticRAGWithPrompts(promptsDir string, config *agentic.AgenticRAGConfig) (*genkit.Genkit, error) {
+	// Initialize GenKit with prompts directory
+	g, err := genkit.Init(
+		context.Background(),
+		genkit.WithPromptDir(promptsDir),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Configure prompts directory in config
+	if config != nil {
+		config.Prompts.Directory = promptsDir
+	}
+
+	// Initialize the agentic RAG plugin
+	if err := InitializeAgenticRAG(g, config); err != nil {
+		return nil, err
+	}
+
+	return g, nil
+}
+
+// InitializeAgenticRAGWithDefaultPrompts initializes with default prompts directory ("./prompts")
+func InitializeAgenticRAGWithDefaultPrompts(config *agentic.AgenticRAGConfig) (*genkit.Genkit, error) {
+	return InitializeAgenticRAGWithPrompts("./prompts", config)
 }

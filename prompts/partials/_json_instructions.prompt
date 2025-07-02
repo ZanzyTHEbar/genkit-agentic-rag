@@ -1,0 +1,10 @@
+**Instructions:**
+{{#each instructions}}
+{{@index}}. {{this}}
+{{/each}}
+
+**Important Requirements:**
+- Respond ONLY with valid JSON as specified
+- Do not include any additional text or explanations
+- Ensure all confidence scores are between 0.0 and 1.0
+- Follow the exact output schema provided
