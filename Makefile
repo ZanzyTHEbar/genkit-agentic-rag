@@ -1,7 +1,7 @@
 # Go Library Makefile
 
 # Go module path
-MODULE_PATH := github.com/ZanzyTHEbar/genkithandler
+MODULE_PATH := github.com/ZanzyTHEbar/agentic-rag
 
 # Test settings
 TEST_TIMEOUT := 30s

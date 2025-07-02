@@ -10,7 +10,7 @@
     "files.exclude": {
       "**/.git": false,
       "**/.env": false,
-      "**/.github.com/ZanzyTHEbar/genkithandler": false
+      "**/.github.com/ZanzyTHEbar/agentic-rag": false
     },
     "editor.foldingStrategy": "indentation",
     "editor.formatOnSave": true,

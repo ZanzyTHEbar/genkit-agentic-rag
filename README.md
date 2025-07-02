@@ -1,15 +1,15 @@
-# GenKit Handler - Advanced Agentic RAG Plugin
+# Genkit Agentic RAG - Advanced Agentic RAG Plugin
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)
-[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)
-[![Coverage Status](https://coveralls.io/repos/github/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/agentic-rag.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/agentic-rag)
+[![Build Status](https://github.com/ZanzyTHEbar/agentic-rag/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/agentic-rag/actions)
+[![Coverage Status](https://coveralls.io/repos/github/ZanzyTHEbar/agentic-rag/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/agentic-rag)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A production-ready Firebase GenKit plugin that implements an advanced Agentic Retrieval-Augmented Generation (RAG) system with full LLM integration and sophisticated reasoning capabilities. Handler - Agentic RAG Plugin
+A production-ready Firebase GenKit plugin that implements an advanced Agentic Retrieval-Augmented Generation (RAG) system with full LLM integration and sophisticated reasoning capabilities.
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/genkithandler.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/genkithandler)
-[![Build Status](https://github.com/ZanzyTHEbar/genkithandler/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/genkithandler/actions)
-[![Coverage Status](https://coveralls.io/repos/github.com/ZanzyTHEbar/genkithandler/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/genkithandler)
+[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/agentic-rag.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/agentic-rag)
+[![Build Status](https://github.com/ZanzyTHEbar/agentic-rag/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/agentic-rag/actions)
+[![Coverage Status](https://coveralls.io/repos/github.com/ZanzyTHEbar/agentic-rag/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/agentic-rag)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generation (RAG) system following the OpenAI Agentic RAG Flow specification.
@@ -50,7 +50,7 @@ A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generati
 ### Installation
 
 ```bash
-go get github.com/ZanzyTHEbar/genkithandler
+go get github.com/ZanzyTHEbar/agentic-rag
 ```
 
 ### Example Usage
@@ -65,8 +65,8 @@ import (
 
     "github.com/firebase/genkit/go/genkit"
     "github.com/firebase/genkit/go/plugins/googlegenai"
-    "github.com/ZanzyTHEbar/genkithandler"
-    "github.com/ZanzyTHEbar/genkithandler/internal/agentic"
+    "github.com/ZanzyTHEbar/genkit-agentic-rag"
+    "github.com/ZanzyTHEbar/genkit-agentic-rag/internal"
 )
 
 func main() {
@@ -79,22 +79,22 @@ func main() {
     }
 
     // Configure advanced Agentic RAG
-    config := &agentic.AgenticRAGConfig{
+    config := &internal.AgenticRAGConfig{
         Genkit:    g,
         ModelName: "googleai/gemini-1.5-flash",
-        Processing: agentic.ProcessingConfig{
+        Processing: internal.ProcessingConfig{
             DefaultChunkSize:      800,
             DefaultMaxChunks:      25,
             DefaultRecursiveDepth: 4,
             RespectSentences:      true,
         },
-        KnowledgeGraph: agentic.KnowledgeGraphConfig{
+        KnowledgeGraph: internal.KnowledgeGraphConfig{
             Enabled:                true,
             EntityTypes:            []string{"PERSON", "ORGANIZATION", "TECHNOLOGY", "CONCEPT"},
             RelationTypes:          []string{"DEVELOPS", "USES", "FOUNDED", "LOCATED_IN"},
             MinConfidenceThreshold: 0.8,
         },
-        FactVerification: agentic.FactVerificationConfig{
+        FactVerification: internal.FactVerificationConfig{
             Enabled:              true,
             RequireEvidence:      true,
             MinConfidenceScore:   0.7,
@@ -102,15 +102,15 @@ func main() {
     }
 
     // Initialize plugin
-    if err := genkithandler.InitializeAgenticRAG(g, config); err != nil {
+    if err := agentic-rag.InitializeAgenticRAG(g, config); err != nil {
         log.Fatalf("Failed to initialize agentic RAG: %v", err)
     }
 
     // Create processor
-    processor := genkithandler.NewAgenticRAGProcessor(config)
+    processor := agentic-rag.NewAgenticRAGProcessor(config)
 
     // Advanced query with comprehensive analysis
-    request := agentic.AgenticRAGRequest{
+    request := internal.AgenticRAGRequest{
         Query: "Analyze the evolution and impact of artificial intelligence technologies",
         Documents: []string{
             `Artificial Intelligence has undergone remarkable evolution since its inception in the 1950s.
@@ -121,7 +121,7 @@ func main() {
              now power applications from autonomous vehicles to medical diagnosis, fundamentally transforming
              industries and society.`,
         },
-        Options: agentic.AgenticRAGOptions{
+        Options: internal.AgenticRAGOptions{
             MaxChunks:              20,
             RecursiveDepth:         3,
             EnableKnowledgeGraph:   true,
@@ -165,7 +165,7 @@ func main() {
     fmt.Printf("- Tokens Processed: %d\n", response.ProcessingMetadata.TokensUsed)
 }
 
-func countVerifiedClaims(claims []agentic.Claim) int {
+func countVerifiedClaims(claims []internal.Claim) int {
     count := 0
     for _, claim := range claims {
         if claim.Status == "verified" {

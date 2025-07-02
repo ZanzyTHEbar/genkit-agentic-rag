@@ -37,24 +37,24 @@ This example demonstrates the enhanced Agentic RAG pipeline with proper GenKit G
 import (
     "github.com/firebase/genkit/go/genkit"
     "github.com/firebase/genkit/go/plugins/googlegenai"
-    "github.com/ZanzyTHEbar/genkithandler"
-    "github.com/ZanzyTHEbar/genkithandler/internal/agentic"
+    "github.com/ZanzyTHEbar/genkit-agentic-rag"
+    "github.com/ZanzyTHEbar/genkit-agentic-rag/internal"
 )
 
 // Initialize GenKit
 g, err := genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{}))
 
 // Configure Agentic RAG
-config := &agentic.AgenticRAGConfig{
+config := &internal.AgenticRAGConfig{
     Genkit:    g,
     ModelName: "googleai/gemini-2.5-flash",
-    Processing: agentic.ProcessingConfig{
+    Processing: internal.ProcessingConfig{
         DefaultChunkSize:      800,
         DefaultMaxChunks:      25,
         DefaultRecursiveDepth: 4,
         RespectSentences:      true,
     },
-    KnowledgeGraph: agentic.KnowledgeGraphConfig{
+    KnowledgeGraph: internal.KnowledgeGraphConfig{
         Enabled:                true,
         EntityTypes:            []string{"PERSON", "ORGANIZATION", "LOCATION", "CONCEPT"},
         RelationTypes:          []string{"WORKS_FOR", "LOCATED_IN", "FOUNDED"},
@@ -63,20 +63,20 @@ config := &agentic.AgenticRAGConfig{
 }
 
 // Initialize plugin
-err = genkithandler.InitializeAgenticRAG(g, config)
+err = agentic-rag.InitializeAgenticRAG(g, config)
 ```
 
 ### Advanced Processing
 
 ```go
 // Create processor
-processor := genkithandler.NewAgenticRAGProcessor(config)
+processor := agentic-rag.NewAgenticRAGProcessor(config)
 
 // Process with full features
-request := agentic.AgenticRAGRequest{
+request := internal.AgenticRAGRequest{
     Query: "Your question here",
     Documents: []string{"Document content..."},
-    Options: agentic.AgenticRAGOptions{
+    Options: internal.AgenticRAGOptions{
         MaxChunks:              20,
         RecursiveDepth:         3,
         EnableKnowledgeGraph:   true,

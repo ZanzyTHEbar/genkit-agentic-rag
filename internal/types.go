@@ -1,4 +1,4 @@
-package agentic
+package internal
 
 import (
 	"time"

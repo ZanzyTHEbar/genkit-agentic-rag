@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ZanzyTHEbar/genkithandler"
-	"github.com/ZanzyTHEbar/genkithandler/internal/agentic"
+	genkit_agentic_rag "github.com/ZanzyTHEbar/genkit-agentic-rag"
+	"github.com/ZanzyTHEbar/genkit-agentic-rag/internal"
 	"github.com/firebase/genkit/go/genkit"
 	"github.com/firebase/genkit/go/plugins/googlegenai"
 )
@@ -15,33 +15,33 @@ func main() {
 	ctx := context.Background()
 
 	// Create advanced agentic RAG configuration with dotprompt support
-	config := &agentic.AgenticRAGConfig{
+	config := &internal.AgenticRAGConfig{
 		ModelName: "googleai/gemini-2.5-flash",
-		Processing: agentic.ProcessingConfig{
+		Processing: internal.ProcessingConfig{
 			DefaultChunkSize:      800, // Smaller chunks for better precision
 			DefaultMaxChunks:      25,  // More chunks for comprehensive analysis
 			DefaultRecursiveDepth: 4,   // Deeper recursive analysis
 			RespectSentences:      true,
 		},
-		KnowledgeGraph: agentic.KnowledgeGraphConfig{
+		KnowledgeGraph: internal.KnowledgeGraphConfig{
 			Enabled:                true,
 			EntityTypes:            []string{"PERSON", "ORGANIZATION", "TECHNOLOGY", "CONCEPT", "EVENT", "LOCATION"},
 			RelationTypes:          []string{"DEVELOPS", "USES", "FOUNDED", "LOCATED_IN", "WORKS_FOR", "INVENTED"},
 			MinConfidenceThreshold: 0.8, // Higher confidence threshold for quality
 		},
-		FactVerification: agentic.FactVerificationConfig{
-			Enabled:              true,
-			RequireEvidence:      true,
-			MinConfidenceScore:   0.75,
+		FactVerification: internal.FactVerificationConfig{
+			Enabled:            true,
+			RequireEvidence:    true,
+			MinConfidenceScore: 0.75,
 		},
-		Prompts: agentic.PromptsConfig{
+		Prompts: internal.PromptsConfig{
 			Directory:                 "../../prompts", // Path to prompts from example directory
 			RelevanceScoringPrompt:    "relevance_scoring",
 			ResponseGenerationPrompt:  "response_generation",
 			KnowledgeExtractionPrompt: "knowledge_extraction",
 			FactVerificationPrompt:    "fact_verification",
 			Variants: map[string]string{
-				"relevance_scoring": "strict", // Use strict variant for higher precision
+				"relevance_scoring":   "strict",   // Use strict variant for higher precision
 				"response_generation": "creative", // Use creative variant for engaging responses
 			},
 			CustomHelpers: true,
@@ -67,16 +67,16 @@ func main() {
 	}
 
 	// Initialize the enhanced agentic RAG plugin
-	if err := genkithandler.InitializeAgenticRAG(g, config); err != nil {
+	if err := genkit_agentic_rag.InitializeAgenticRAG(g, config); err != nil {
 		log.Fatalf("Failed to initialize Agentic RAG: %v", err)
 	}
 
 	// Example 1: Basic Agentic RAG with knowledge graph
 	fmt.Println("=== Example 1: Advanced Agentic RAG with Knowledge Graph ===")
-	processor := genkithandler.NewAgenticRAGProcessor(config)
+	processor := genkit_agentic_rag.NewAgenticRAGProcessor(config)
 
 	// Sample technical document
-	request := agentic.AgenticRAGRequest{
+	request := internal.AgenticRAGRequest{
 		Query: "What are the key features and benefits of microservices architecture?",
 		Documents: []string{
 			`Microservices architecture is a design approach where applications are built as a collection of small, 
@@ -87,7 +87,7 @@ func main() {
 			However, microservices also introduce challenges such as increased complexity in service communication, 
 			data consistency issues, and the need for sophisticated monitoring and orchestration tools like Kubernetes.`,
 		},
-		Options: agentic.AgenticRAGOptions{
+		Options: internal.AgenticRAGOptions{
 			MaxChunks:              20,
 			RecursiveDepth:         3,
 			EnableKnowledgeGraph:   true,
@@ -115,7 +115,7 @@ func main() {
 
 	// Example 2: Complex technical analysis
 	fmt.Println("=== Example 2: Complex Technical Analysis ===")
-	complexRequest := agentic.AgenticRAGRequest{
+	complexRequest := internal.AgenticRAGRequest{
 		Query: "How do distributed databases handle consistency and partition tolerance in CAP theorem?",
 		Documents: []string{
 			`The CAP theorem, formulated by Eric Brewer, states that distributed data stores can only guarantee two 
@@ -134,7 +134,7 @@ func main() {
 			algorithms handle more complex failure scenarios where nodes might behave maliciously. Practical Byzantine Fault 
 			Tolerance (pBFT) and its variants are used in blockchain systems and critical distributed applications.`,
 		},
-		Options: agentic.AgenticRAGOptions{
+		Options: internal.AgenticRAGOptions{
 			MaxChunks:              25,
 			RecursiveDepth:         4,
 			EnableKnowledgeGraph:   true,

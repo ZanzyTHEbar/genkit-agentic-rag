@@ -1,4 +1,4 @@
-module github.com/ZanzyTHEbar/genkithandler
+module github.com/ZanzyTHEbar/genkit-agentic-rag
 
 go 1.24.3
 
