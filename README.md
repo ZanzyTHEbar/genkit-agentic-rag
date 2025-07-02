@@ -1,18 +1,11 @@
 # Genkit Agentic RAG - Advanced Agentic RAG Plugin
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/agentic-rag.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/agentic-rag)
+<!-- [![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/agentic-rag.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/agentic-rag)
 [![Build Status](https://github.com/ZanzyTHEbar/agentic-rag/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/agentic-rag/actions)
 [![Coverage Status](https://coveralls.io/repos/github/ZanzyTHEbar/agentic-rag/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/agentic-rag)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) -->
 
-A production-ready Firebase GenKit plugin that implements an advanced Agentic Retrieval-Augmented Generation (RAG) system with full LLM integration and sophisticated reasoning capabilities.
-
-[![Go Reference](https://pkg.go.dev/badge/github.com/ZanzyTHEbar/agentic-rag.svg)](https://pkg.go.dev/github.com/ZanzyTHEbar/agentic-rag)
-[![Build Status](https://github.com/ZanzyTHEbar/agentic-rag/actions/workflows/go.yml/badge.svg)](https://github.com/ZanzyTHEbar/agentic-rag/actions)
-[![Coverage Status](https://coveralls.io/repos/github.com/ZanzyTHEbar/agentic-rag/badge.svg)](https://coveralls.io/github/ZanzyTHEbar/agentic-rag)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-A Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generation (RAG) system following the OpenAI Agentic RAG Flow specification.
+A production-ready Firebase GenKit plugin that implements an Agentic Retrieval-Augmented Generation (RAG) system following the OpenAI Agentic RAG Flow specification with sophisticated reasoning capabilities.
 
 ## Features
 
