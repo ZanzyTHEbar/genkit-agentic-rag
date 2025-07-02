@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -598,6 +599,65 @@ func (p *AgenticRAGProcessor) generateResponse(ctx context.Context, query string
 		return "I don't have enough information to answer your question.", 0, nil
 	}
 
+	// Initialize prompts if not done already
+	if err := p.initializePrompts(ctx); err != nil {
+		return "", 0, fmt.Errorf("failed to initialize prompts: %w", err)
+	}
+
+	// Prepare chunk data for prompt
+	contextChunks := make([]map[string]any, len(chunks))
+	for i, chunk := range chunks {
+		contextChunks[i] = map[string]any{
+			"content":         chunk.Content,
+			"source":          fmt.Sprintf("Source %d", i+1),
+			"relevance_score": chunk.RelevanceScore,
+		}
+	}
+
+	// Get the prompt variant to use
+	promptName := p.config.Prompts.ResponseGenerationPrompt
+	if variant, exists := p.config.Prompts.Variants["response_generation"]; exists {
+		promptName = fmt.Sprintf("%s.%s", promptName, variant)
+	}
+
+	// Lookup the dotprompt
+	responsePrompt := genkit.LookupPrompt(p.config.Genkit, promptName)
+	if responsePrompt == nil {
+		// Fallback to hardcoded prompt if dotprompt not found
+		return p.generateResponseFallback(ctx, query, chunks, options)
+	}
+
+	// Execute the prompt with proper input
+	response, err := responsePrompt.Execute(ctx,
+		ai.WithInput(map[string]any{
+			"query":            query,
+			"context_chunks":   contextChunks,
+			"enable_citations": true,
+		}),
+	)
+	if err != nil {
+		// Fallback if LLM fails
+		return p.generateResponseFallback(ctx, query, chunks, options)
+	}
+
+	// Parse the structured response
+	var responseData map[string]any
+	if err := response.Output(&responseData); err != nil {
+		// If structured parsing fails, use text response
+		return response.Text(), len(response.Text()), nil
+	}
+
+	// Extract answer from structured response
+	if answer, ok := responseData["answer"].(string); ok {
+		return answer, len(answer), nil
+	}
+
+	// Fallback to text response
+	return response.Text(), len(response.Text()), nil
+}
+
+// generateResponseFallback provides a fallback when dotprompt is not available
+func (p *AgenticRAGProcessor) generateResponseFallback(ctx context.Context, query string, chunks []DocumentChunk, options AgenticRAGOptions) (string, int, error) {
 	// Build context from relevant chunks
 	contextBuilder := strings.Builder{}
 	contextBuilder.WriteString("Based on the following relevant information:\n\n")
@@ -633,7 +693,7 @@ Answer:`, contextBuilder.String(), query)
 			ai.WithPrompt(prompt),
 			ai.WithConfig(&ai.GenerationCommonConfig{
 				Temperature:     float64(options.Temperature),
-				MaxOutputTokens: 2048,
+				MaxOutputTokens: 2000,
 			}),
 		)
 	} else {
@@ -642,7 +702,7 @@ Answer:`, contextBuilder.String(), query)
 			ai.WithPrompt(prompt),
 			ai.WithConfig(&ai.GenerationCommonConfig{
 				Temperature:     float64(options.Temperature),
-				MaxOutputTokens: 2048,
+				MaxOutputTokens: 2000,
 			}),
 		)
 	}
@@ -651,10 +711,8 @@ Answer:`, contextBuilder.String(), query)
 		return "", 0, fmt.Errorf("failed to generate response: %w", err)
 	}
 
-	// Count tokens used (approximation)
-	tokensUsed := len(strings.Fields(prompt)) + len(strings.Fields(response.Text()))
-
-	return response.Text(), tokensUsed, nil
+	responseText := response.Text()
+	return responseText, len(responseText), nil
 }
 
 // buildKnowledgeGraph extracts entities and relations from chunks using LLM
@@ -663,6 +721,57 @@ func (p *AgenticRAGProcessor) buildKnowledgeGraph(ctx context.Context, chunks []
 		return nil, nil
 	}
 
+	// Initialize prompts if not done already
+	if err := p.initializePrompts(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize prompts: %w", err)
+	}
+
+	// Prepare chunk texts for prompt
+	textChunks := make([]string, len(chunks))
+	for i, chunk := range chunks {
+		textChunks[i] = chunk.Content
+	}
+
+	// Get the prompt variant to use
+	promptName := p.config.Prompts.KnowledgeExtractionPrompt
+	if variant, exists := p.config.Prompts.Variants["knowledge_extraction"]; exists {
+		promptName = fmt.Sprintf("%s.%s", promptName, variant)
+	}
+
+	// Lookup the dotprompt
+	kgPrompt := genkit.LookupPrompt(p.config.Genkit, promptName)
+	if kgPrompt == nil {
+		// Fallback to hardcoded prompt if dotprompt not found
+		return p.buildKnowledgeGraphFallback(ctx, chunks)
+	}
+
+	// Execute the prompt with proper input
+	response, err := kgPrompt.Execute(ctx,
+		ai.WithInput(map[string]any{
+			"text_chunks":    textChunks,
+			"entity_types":   p.config.KnowledgeGraph.EntityTypes,
+			"relation_types": p.config.KnowledgeGraph.RelationTypes,
+			"min_confidence": p.config.KnowledgeGraph.MinConfidenceThreshold,
+		}),
+	)
+	if err != nil {
+		// Fallback if LLM fails
+		return p.buildKnowledgeGraphFallback(ctx, chunks)
+	}
+
+	// Parse the structured response
+	var responseData map[string]any
+	if err := response.Output(&responseData); err != nil {
+		// Fallback if parsing fails
+		return p.buildKnowledgeGraphFallback(ctx, chunks)
+	}
+
+	// Extract knowledge graph from structured response
+	return p.parseKnowledgeGraphResponse(responseData)
+}
+
+// buildKnowledgeGraphFallback provides a fallback when dotprompt is not available
+func (p *AgenticRAGProcessor) buildKnowledgeGraphFallback(ctx context.Context, chunks []DocumentChunk) (*KnowledgeGraph, error) {
 	// Combine chunk contents for analysis
 	var contentBuilder strings.Builder
 	for i, chunk := range chunks {
@@ -703,7 +812,7 @@ Respond with JSON in this exact format:
 		contentBuilder.String(), entityTypes, p.config.KnowledgeGraph.MinConfidenceThreshold,
 		relationTypes, p.config.KnowledgeGraph.MinConfidenceThreshold)
 
-	// Generate knowledge graph using LLM
+	// Generate response using LLM
 	var response *ai.ModelResponse
 	var err error
 
@@ -712,8 +821,8 @@ Respond with JSON in this exact format:
 			ai.WithModel(p.config.Model),
 			ai.WithPrompt(prompt),
 			ai.WithConfig(&ai.GenerationCommonConfig{
-				Temperature:     0.1, // Low temperature for consistent extraction
-				MaxOutputTokens: 2048,
+				Temperature:     0.2, // Low temperature for structured output
+				MaxOutputTokens: 2500,
 			}),
 		)
 	} else {
@@ -721,8 +830,8 @@ Respond with JSON in this exact format:
 			ai.WithModelName(p.config.ModelName),
 			ai.WithPrompt(prompt),
 			ai.WithConfig(&ai.GenerationCommonConfig{
-				Temperature:     0.1, // Low temperature for consistent extraction
-				MaxOutputTokens: 2048,
+				Temperature:     0.2, // Low temperature for structured output
+				MaxOutputTokens: 2500,
 			}),
 		)
 	}
@@ -732,72 +841,164 @@ Respond with JSON in this exact format:
 	}
 
 	// Parse the LLM response
-	var kgResponse struct {
-		Entities  []Entity   `json:"entities"`
-		Relations []Relation `json:"relations"`
-	}
-
 	responseText := response.Text()
-	if err := json.Unmarshal([]byte(responseText), &kgResponse); err != nil {
-		// Return empty knowledge graph if parsing fails
-		return &KnowledgeGraph{
-			Entities:  []Entity{},
-			Relations: []Relation{},
-			Metadata: map[string]interface{}{
-				"extraction_error": err.Error(),
-				"raw_response":     responseText,
-			},
-		}, nil
-	}
-
-	// Filter by confidence threshold
-	filteredEntities := make([]Entity, 0)
-	for _, entity := range kgResponse.Entities {
-		if entity.Confidence >= p.config.KnowledgeGraph.MinConfidenceThreshold {
-			filteredEntities = append(filteredEntities, entity)
-		}
-	}
-
-	filteredRelations := make([]Relation, 0)
-	for _, relation := range kgResponse.Relations {
-		if relation.Confidence >= p.config.KnowledgeGraph.MinConfidenceThreshold {
-			filteredRelations = append(filteredRelations, relation)
-		}
-	}
-
-	return &KnowledgeGraph{
-		Entities:  filteredEntities,
-		Relations: filteredRelations,
-		Metadata: map[string]interface{}{
-			"extraction_method": "llm_based",
-			"entity_types":      p.config.KnowledgeGraph.EntityTypes,
-			"relation_types":    p.config.KnowledgeGraph.RelationTypes,
-			"min_confidence":    p.config.KnowledgeGraph.MinConfidenceThreshold,
-			"created_at":        time.Now(),
-		},
-	}, nil
+	return p.parseKnowledgeGraphFromText(responseText)
 }
 
-// isCommonWord checks if a word is a common word that shouldn't be an entity
-func (p *AgenticRAGProcessor) isCommonWord(word string) bool {
-	commonWords := map[string]bool{
-		"The": true, "This": true, "That": true, "And": true, "But": true,
-		"Or": true, "For": true, "With": true, "By": true, "At": true,
-		"In": true, "On": true, "To": true, "From": true, "Of": true,
-		"As": true, "Is": true, "Are": true, "Was": true, "Were": true,
-		"Be": true, "Been": true, "Being": true, "Have": true, "Has": true,
-		"Had": true, "Do": true, "Does": true, "Did": true, "Will": true,
-		"Would": true, "Could": true, "Should": true, "May": true, "Might": true,
-		"Can": true, "Must": true, "Shall": true, "Here": true, "There": true,
-		"Where": true, "When": true, "What": true, "Who": true, "Why": true,
-		"How": true, "All": true, "Any": true, "Some": true, "Many": true,
-		"Few": true, "More": true, "Most": true, "Other": true, "Such": true,
-		"No": true, "Not": true, "Only": true, "Own": true, "Same": true,
-		"So": true, "Than": true, "Too": true, "Very": true, "Just": true,
-		"Now": true, "Also": true, "Its": true, "My": true, "Your": true,
-		"His": true, "Her": true, "Our": true, "Their": true,
+// parseKnowledgeGraphResponse parses structured response data from dotprompt
+func (p *AgenticRAGProcessor) parseKnowledgeGraphResponse(responseData map[string]any) (*KnowledgeGraph, error) {
+	kg := &KnowledgeGraph{
+		Entities:  make([]Entity, 0),
+		Relations: make([]Relation, 0),
 	}
-	return commonWords[word]
+
+	// Parse entities
+	if entitiesData, ok := responseData["entities"]; ok {
+		if entitiesArray, ok := entitiesData.([]any); ok {
+			for _, entityData := range entitiesArray {
+				if entityMap, ok := entityData.(map[string]any); ok {
+					entity := Entity{}
+					if name, ok := entityMap["name"].(string); ok {
+						entity.Name = name
+					}
+					if entityType, ok := entityMap["type"].(string); ok {
+						entity.Type = entityType
+					}
+					if confidence, ok := entityMap["confidence"].(float64); ok {
+						entity.Confidence = confidence
+					}
+					// Note: Mentions field is not in the Entity struct, storing in Properties instead
+					if mentions, ok := entityMap["mentions"].([]any); ok {
+						mentionsList := make([]string, len(mentions))
+						for i, mention := range mentions {
+							if mentionStr, ok := mention.(string); ok {
+								mentionsList[i] = mentionStr
+							}
+						}
+						if entity.Properties == nil {
+							entity.Properties = make(map[string]interface{})
+						}
+						entity.Properties["mentions"] = mentionsList
+					}
+
+					if entity.Confidence >= p.config.KnowledgeGraph.MinConfidenceThreshold {
+						kg.Entities = append(kg.Entities, entity)
+					}
+				}
+			}
+		}
+	}
+
+	// Parse relations
+	if relationsData, ok := responseData["relations"]; ok {
+		if relationsArray, ok := relationsData.([]any); ok {
+			for _, relationData := range relationsArray {
+				if relationMap, ok := relationData.(map[string]any); ok {
+					relation := Relation{}
+					if fromEntity, ok := relationMap["from_entity"].(string); ok {
+						relation.Subject = fromEntity
+					}
+					if toEntity, ok := relationMap["to_entity"].(string); ok {
+						relation.Object = toEntity
+					}
+					if relationType, ok := relationMap["relation_type"].(string); ok {
+						relation.Predicate = relationType
+					}
+					if confidence, ok := relationMap["confidence"].(float64); ok {
+						relation.Confidence = confidence
+					}
+					// Store evidence in Properties since it's not a direct field
+					if evidence, ok := relationMap["evidence"].(string); ok {
+						if relation.Properties == nil {
+							relation.Properties = make(map[string]interface{})
+						}
+						relation.Properties["evidence"] = evidence
+					}
+
+					if relation.Confidence >= p.config.KnowledgeGraph.MinConfidenceThreshold {
+						kg.Relations = append(kg.Relations, relation)
+					}
+				}
+			}
+		}
+	}
+
+	return kg, nil
+}
+
+// parseKnowledgeGraphFromText parses knowledge graph from text response (fallback)
+func (p *AgenticRAGProcessor) parseKnowledgeGraphFromText(responseText string) (*KnowledgeGraph, error) {
+	// Simple heuristic parsing for fallback response
+	lines := strings.Split(responseText, "\n")
+	kg := &KnowledgeGraph{
+		Entities:  make([]Entity, 0),
+		Relations: make([]Relation, 0),
+	}
+
+	// Parse entities and relations from text
+	var currentSection *string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Detect section headers
+		if strings.HasPrefix(line, "Entities:") {
+			currentSection = new(string)
+			*currentSection = "entities"
+			continue
+		} else if strings.HasPrefix(line, "Relations:") {
+			currentSection = new(string)
+			*currentSection = "relations"
+			continue
+		}
+
+		// Parse entity
+		if currentSection != nil && *currentSection == "entities" {
+			parts := strings.Split(line, ", ")
+			if len(parts) >= 3 {
+				entity := Entity{
+					Name:       parts[0],
+					Type:       parts[1],
+					Confidence: parseConfidence(parts[2]),
+				}
+				kg.Entities = append(kg.Entities, entity)
+			}
+		}
+
+		// Parse relation
+		if currentSection != nil && *currentSection == "relations" {
+			parts := strings.Split(line, ", ")
+			if len(parts) >= 4 {
+				// ID         string
+				// Subject    string
+				// Predicate  string
+				// Object     string
+				// Properties map[string]interface{}
+				// Confidence float64
+				relation := Relation{
+					Subject:    parts[0],
+					Object:     parts[1],
+					Predicate:  parts[2],
+					Confidence: parseConfidence(parts[3]),
+				}
+				kg.Relations = append(kg.Relations, relation)
+			}
+		}
+	}
+
+	return kg, nil
+}
+
+// parseConfidence safely parses a confidence value from string
+func parseConfidence(confidenceStr string) float64 {
+	confidenceStr = strings.TrimSuffix(confidenceStr, "%")
+	confidence, err := strconv.ParseFloat(confidenceStr, 64)
+	if err != nil {
+		return 0.0
+	}
+	return confidence / 100.0
 }
 
 // verifyFacts performs fact verification on the generated response using LLM
@@ -806,6 +1007,98 @@ func (p *AgenticRAGProcessor) verifyFacts(ctx context.Context, answer string, ch
 		return nil, nil
 	}
 
+	// Initialize prompts if not done already
+	if err := p.initializePrompts(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize prompts: %w", err)
+	}
+
+	// Prepare source documents for prompt
+	sourceDocuments := make([]string, len(chunks))
+	for i, chunk := range chunks {
+		sourceDocuments[i] = chunk.Content
+	}
+
+	// Get the prompt variant to use
+	promptName := p.config.Prompts.FactVerificationPrompt
+	if variant, exists := p.config.Prompts.Variants["fact_verification"]; exists {
+		promptName = fmt.Sprintf("%s.%s", promptName, variant)
+	}
+
+	// Lookup the dotprompt
+	factPrompt := genkit.LookupPrompt(p.config.Genkit, promptName)
+	if factPrompt == nil {
+		// Fallback to hardcoded prompt if dotprompt not found
+		return p.verifyFactsFallback(ctx, answer, chunks)
+	}
+
+	// Execute the prompt with proper input
+	response, err := factPrompt.Execute(ctx,
+		ai.WithInput(map[string]any{
+			"answer_text":      answer,
+			"source_documents": sourceDocuments,
+			"require_evidence": p.config.FactVerification.RequireEvidence,
+		}),
+	)
+	if err != nil {
+		// Fallback if LLM fails
+		return p.verifyFactsFallback(ctx, answer, chunks)
+	}
+
+	// Parse the structured response
+	var responseData map[string]any
+	if err := response.Output(&responseData); err != nil {
+		// Fallback if parsing fails
+		return p.verifyFactsFallback(ctx, answer, chunks)
+	}
+
+	// Extract fact verification from structured response
+	return p.parseFactVerificationResponse(responseData)
+}
+
+// parseFactVerificationResponse parses the structured response from fact verification dotprompt
+func (p *AgenticRAGProcessor) parseFactVerificationResponse(responseData map[string]any) (*FactVerification, error) {
+	claims, ok := responseData["claims"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid claims format in response")
+	}
+
+	var factClaims []Claim
+	for _, claimData := range claims {
+		claimMap, ok := claimData.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		text, _ := claimMap["text"].(string)
+		status, _ := claimMap["status"].(string)
+		confidence, _ := claimMap["confidence"].(float64)
+
+		evidenceList, _ := claimMap["evidence"].([]interface{})
+		var evidence []string
+		for _, ev := range evidenceList {
+			if evStr, ok := ev.(string); ok {
+				evidence = append(evidence, evStr)
+			}
+		}
+
+		factClaims = append(factClaims, Claim{
+			Text:       text,
+			Status:     status,
+			Confidence: confidence,
+			Evidence:   evidence,
+		})
+	}
+
+	overall, _ := responseData["overall"].(string)
+
+	return &FactVerification{
+		Claims:  factClaims,
+		Overall: overall,
+	}, nil
+}
+
+// verifyFactsFallback provides a fallback fact verification method when dotprompt is unavailable
+func (p *AgenticRAGProcessor) verifyFactsFallback(ctx context.Context, answer string, chunks []DocumentChunk) (*FactVerification, error) {
 	// Build source context for verification
 	var contextBuilder strings.Builder
 	contextBuilder.WriteString("Source documents:\n\n")

@@ -243,7 +243,7 @@ This is a **production-ready implementation** that provides:
 
 For comprehensive usage examples demonstrating all features:
 
-- **[Basic Example](example/main.go)** - Quick start with default configuration
+- **[Basic Example](examples/main.go)** - Quick start with default configuration
 - **[Advanced Example](examples/advanced_agentic_rag/)** - Full-featured implementation with sophisticated analysis
 
 The advanced example showcases:
