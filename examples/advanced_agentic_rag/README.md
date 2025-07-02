@@ -47,7 +47,7 @@ g, err := genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{}))
 // Configure Agentic RAG
 config := &agentic.AgenticRAGConfig{
     Genkit:    g,
-    ModelName: "googleai/gemini-1.5-flash",
+    ModelName: "googleai/gemini-2.5-flash",
     Processing: agentic.ProcessingConfig{
         DefaultChunkSize:      800,
         DefaultMaxChunks:      25,

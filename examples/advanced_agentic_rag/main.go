@@ -25,7 +25,7 @@ func main() {
 	// Create advanced agentic RAG configuration
 	config := &agentic.AgenticRAGConfig{
 		Genkit:    g,
-		ModelName: "googleai/gemini-1.5-flash",
+		ModelName: "googleai/gemini-2.5-flash",
 		Processing: agentic.ProcessingConfig{
 			DefaultChunkSize:      800, // Smaller chunks for better precision
 			DefaultMaxChunks:      25,  // More chunks for comprehensive analysis
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Optional: Set a specific model instance if available
-	model := genkit.LookupModel(g, "googleai", "gemini-1.5-flash")
+	model := genkit.LookupModel(g, "googleai", "gemini-2.5-flash")
 	if model != nil {
 		config.Model = model
 	}
