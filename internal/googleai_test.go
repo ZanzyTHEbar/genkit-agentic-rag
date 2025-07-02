@@ -1,4 +1,4 @@
-package providers
+package internal
 
 import (
 	"context"
@@ -396,7 +396,7 @@ func TestGoogleAIProvider_CallTool_NotInitialized(t *testing.T) {
 	mockErrorHandler.On("New", "provider not initialized", mock.Anything).Return(errors.New("provider not initialized"))
 	provider := NewGoogleAIProvider(mockLogger, mockErrorHandler)
 
-	_, err := provider.CallTool(context.Background(), nil, "testTool", nil)
+	_, err := provider.CallTool(context.Background(), "testTool", nil)
 	assert.Error(t, err, "CallTool should return an error if not initialized")
 	assert.Contains(t, err.Error(), "provider not initialized")
 	mockErrorHandler.AssertExpectations(t)
@@ -428,7 +428,7 @@ func TestGoogleAIProvider_CallTool_WithAPIKey(t *testing.T) {
 	toolName := "getWeather"
 	toolParams := map[string]interface{}{"location": "London"}
 
-	result, err := provider.CallTool(context.Background(), provider.genkit, toolName, toolParams)
+	result, err := provider.CallTool(context.Background(), toolName, toolParams)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "API key not valid") || strings.Contains(err.Error(), "quota") || strings.Contains(err.Error(), "model is not configured to use tools") {

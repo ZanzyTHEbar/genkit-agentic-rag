@@ -1,4 +1,4 @@
-package providers
+package internal
 
 import (
 	"context"
@@ -23,8 +23,14 @@ type RetryConfig struct {
 }
 
 type GoogleAIProviderConfig struct {
-	APIKey       string `json:"api_key" mapstructure:"api_key"`
-	DefaultModel string `json:"default_model" mapstructure:"default_model"`
+	APIKey         string        `json:"api_key" mapstructure:"api_key"`
+	DefaultModel   string        `json:"default_model" mapstructure:"default_model"`
+	EmbeddingModel string        `json:"embedding_model" mapstructure:"embedding_model"`
+	Temperature    float32       `json:"temperature" mapstructure:"temperature"`
+	MaxTokens      int           `json:"max_tokens" mapstructure:"max_tokens"`
+	RequestTimeout time.Duration `json:"request_timeout" mapstructure:"request_timeout"`
+	RetryAttempts  int           `json:"retry_attempts" mapstructure:"retry_attempts"`
+	RetryDelay     time.Duration `json:"retry_delay" mapstructure:"retry_delay"`
 }
 
 // GoogleAIProvider represents the Google AI provider configuration using Genkit's built-in plugin
@@ -35,7 +41,7 @@ type GoogleAIProvider struct {
 	config       GoogleAIProviderConfig
 	logger       domain.Logger
 	errorHandler domain.ErrorHandler
-	genkit       *genkit.Genkit
+	kit          *genkit.Genkit
 }
 
 // NewGoogleAIProvider creates a new Google AI provider instance
@@ -79,7 +85,7 @@ func (p *GoogleAIProvider) Initialize(ctx context.Context, config map[string]int
 	p.config = googleConfig
 
 	// Initialize GenKit with GoogleAI plugin - proper pattern according to documentation
-	genkitInstance, err := genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{
+	kit, err := genkit.Init(ctx, genkit.WithPlugins(&googlegenai.GoogleAI{
 		APIKey: googleConfig.APIKey,
 	}))
 	if err != nil {
@@ -88,7 +94,7 @@ func (p *GoogleAIProvider) Initialize(ctx context.Context, config map[string]int
 		})
 	}
 
-	p.genkit = genkitInstance
+	p.kit = kit
 	p.initialized = true
 
 	p.logger.Info("Google AI provider initialized successfully", map[string]interface{}{
@@ -120,12 +126,9 @@ func (p *GoogleAIProvider) GenerateText(ctx context.Context, prompt string) (str
 
 	// Use the built-in Genkit generate function with the Google AI model
 	response, err := p.withRetry(ctx, func() (string, error) {
-		// Get the model reference from the plugin
-		model := googlegenai.GoogleAIModel(p.genkit, p.GetModel())
-
 		// Use the correct GenKit API - GenerateText is the correct function
-		result, err := genkit.GenerateText(ctx, p.genkit,
-			ai.WithModel(model),
+		result, err := genkit.GenerateText(ctx, p.kit,
+			ai.WithModelName(p.GetModel()),
 			ai.WithPrompt(prompt),
 		)
 
@@ -147,12 +150,9 @@ func (p *GoogleAIProvider) GenerateWithStructuredOutput(ctx context.Context, pro
 
 	// Use the built-in Genkit generate function with structured output
 	return p.withRetryStructured(ctx, func() (*ai.ModelResponse, error) {
-		// Get the model reference from the plugin
-		model := googlegenai.GoogleAIModel(p.genkit, p.GetModel())
-
 		// Use the correct GenKit API - Generate with OutputType
-		result, err := genkit.Generate(ctx, p.genkit,
-			ai.WithModel(model),
+		result, err := genkit.Generate(ctx, p.kit,
+			ai.WithModelName(p.GetModel()),
 			ai.WithPrompt(prompt),
 			ai.WithOutputType(outputType),
 		)
@@ -278,8 +278,12 @@ func (p *GoogleAIProvider) SupportsStructuredOutput() bool {
 	return true // Google AI/Gemini supports structured output
 }
 
+// FIXME: Use the defaults returned from Genkit API
 // GetMaxTokens returns the maximum token limit for the configured model
 func (p *GoogleAIProvider) GetMaxTokens() int {
+	if p.config.MaxTokens > 0 {
+		return p.config.MaxTokens
+	}
 	// Return conservative limits for different Gemini models
 	model := p.GetModel()
 	switch model {
@@ -295,7 +299,7 @@ func (p *GoogleAIProvider) GetMaxTokens() int {
 }
 
 // GenerateStream generates a streaming response using GenKit's native streaming
-func (p *GoogleAIProvider) GenerateStream(ctx context.Context, g *genkit.Genkit, prompt string) (<-chan StreamChunk, error) {
+func (p *GoogleAIProvider) GenerateStream(ctx context.Context, prompt string) (<-chan StreamChunk, error) {
 	if !p.initialized {
 		resultChan := make(chan StreamChunk, 1)
 		close(resultChan)
@@ -311,12 +315,9 @@ func (p *GoogleAIProvider) GenerateStream(ctx context.Context, g *genkit.Genkit,
 	go func() {
 		defer close(resultChan)
 
-		// Get the model reference from the plugin
-		model := googlegenai.GoogleAIModel(p.genkit, p.GetModel())
-
 		// Use GenKit's native streaming capabilities
-		_, err := genkit.Generate(ctx, p.genkit,
-			ai.WithModel(model),
+		_, err := genkit.Generate(ctx, p.kit,
+			ai.WithModelName(p.GetModel()),
 			ai.WithPrompt(prompt),
 			ai.WithStreaming(func(ctx context.Context, chunk *ai.ModelResponseChunk) error {
 				// Convert GenKit chunk to our StreamChunk format
@@ -370,7 +371,7 @@ func (p *GoogleAIProvider) GenerateStream(ctx context.Context, g *genkit.Genkit,
 }
 
 // CallTool executes a tool through the AI model using GenKit's tool calling system
-func (p *GoogleAIProvider) CallTool(ctx context.Context, g *genkit.Genkit, toolName string, params map[string]interface{}) (*ToolCallResult, error) {
+func (p *GoogleAIProvider) CallTool(ctx context.Context, toolName string, params map[string]interface{}) (*ToolCallResult, error) {
 	if !p.initialized {
 		return nil, p.errorHandler.New("provider not initialized", map[string]interface{}{
 			"provider":  "googleai",
@@ -392,7 +393,7 @@ func (p *GoogleAIProvider) CallTool(ctx context.Context, g *genkit.Genkit, toolN
 	}
 
 	// Look up the tool from GenKit's registry
-	tool := genkit.LookupTool(p.genkit, toolName)
+	tool := genkit.LookupTool(p.kit, toolName)
 	if tool == nil {
 		return &ToolCallResult{
 			Result:   nil,
@@ -485,12 +486,10 @@ func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConf
 		}
 	}
 
-	// Parse embedding model with type validation (if exists in config struct)
+	// Parse embedding model with type validation
 	if embeddingModelVal, ok := config["embedding_model"]; ok {
 		if embeddingModel, ok := embeddingModelVal.(string); ok {
-			// FIXME: GoogleAIProviderConfig doesn't have EmbeddingModel field yet
-			// This would require adding it to the struct definition
-			_ = embeddingModel // Silently ignore for now
+			googleConfig.EmbeddingModel = embeddingModel
 		} else {
 			return errbuilder.New().
 				WithMsg("Invalid embedding_model type").
@@ -503,16 +502,15 @@ func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConf
 		}
 	}
 
-	// Parse temperature with type validation (if exists in config struct)
+	// Parse temperature with type validation
 	if temperatureVal, ok := config["temperature"]; ok {
 		switch v := temperatureVal.(type) {
 		case float32:
-			// FIXME: GoogleAIProviderConfig doesn't have Temperature field yet
-			_ = v // Silently ignore for now
+			googleConfig.Temperature = v
 		case float64:
-			_ = float32(v) // Silently ignore for now
+			googleConfig.Temperature = float32(v)
 		case int:
-			_ = float32(v) // Silently ignore for now
+			googleConfig.Temperature = float32(v)
 		default:
 			return errbuilder.New().
 				WithMsg("Invalid temperature type").
@@ -525,16 +523,15 @@ func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConf
 		}
 	}
 
-	// Parse max tokens with type validation (if exists in config struct)
+	// Parse max tokens with type validation
 	if maxTokensVal, ok := config["max_tokens"]; ok {
 		switch v := maxTokensVal.(type) {
 		case int:
-			// FIXME: GoogleAIProviderConfig doesn't have MaxTokens field yet
-			_ = v // Silently ignore for now
+			googleConfig.MaxTokens = v
 		case float64:
-			_ = int(v) // Silently ignore for now
+			googleConfig.MaxTokens = int(v)
 		case float32:
-			_ = int(v) // Silently ignore for now
+			googleConfig.MaxTokens = int(v)
 		default:
 			return errbuilder.New().
 				WithMsg("Invalid max_tokens type").
@@ -547,38 +544,49 @@ func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConf
 		}
 	}
 
-	// Parse request timeout with type validation (if exists in config struct)
+	// Parse request timeout with type validation
 	if requestTimeoutVal, ok := config["request_timeout"]; ok {
 		switch v := requestTimeoutVal.(type) {
 		case int:
-			// FIXME: GoogleAIProviderConfig doesn't have RequestTimeout field yet
-			_ = v // Silently ignore for now
+			googleConfig.RequestTimeout = time.Duration(v) * time.Second
 		case float64:
-			_ = int(v) // Silently ignore for now
+			googleConfig.RequestTimeout = time.Duration(v) * time.Second
 		case float32:
-			_ = int(v) // Silently ignore for now
+			googleConfig.RequestTimeout = time.Duration(v) * time.Second
+		case string:
+			if d, err := time.ParseDuration(v); err == nil {
+				googleConfig.RequestTimeout = d
+			} else {
+				return errbuilder.New().
+					WithMsg("Invalid request_timeout format").
+					WithCode(errbuilder.CodeInvalidArgument).
+					WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+						"expected_type": fmt.Errorf("int/float/string (e.g., '30s')"),
+						"actual_type":   fmt.Errorf("%T", requestTimeoutVal),
+						"value":         fmt.Errorf("%v", requestTimeoutVal),
+					}))
+			}
 		default:
 			return errbuilder.New().
 				WithMsg("Invalid request_timeout type").
 				WithCode(errbuilder.CodeInvalidArgument).
 				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
-					"expected_type": fmt.Errorf("int/float64/float32"),
+					"expected_type": fmt.Errorf("int/float/string"),
 					"actual_type":   fmt.Errorf("%T", requestTimeoutVal),
 					"value":         fmt.Errorf("%v", requestTimeoutVal),
 				}))
 		}
 	}
 
-	// Parse retry attempts with type validation (if exists in config struct)
+	// Parse retry attempts with type validation
 	if retryAttemptsVal, ok := config["retry_attempts"]; ok {
 		switch v := retryAttemptsVal.(type) {
 		case int:
-			// FIXME: GoogleAIProviderConfig doesn't have RetryAttempts field yet
-			_ = v // Silently ignore for now
+			googleConfig.RetryAttempts = v
 		case float64:
-			_ = int(v) // Silently ignore for now
+			googleConfig.RetryAttempts = int(v)
 		case float32:
-			_ = int(v) // Silently ignore for now
+			googleConfig.RetryAttempts = int(v)
 		default:
 			return errbuilder.New().
 				WithMsg("Invalid retry_attempts type").
@@ -591,22 +599,34 @@ func (p *GoogleAIProvider) parseConfig(config map[string]interface{}, googleConf
 		}
 	}
 
-	// Parse retry delay with type validation (if exists in config struct)
+	// Parse retry delay with type validation
 	if retryDelayVal, ok := config["retry_delay"]; ok {
 		switch v := retryDelayVal.(type) {
 		case int:
-			// FIXME: GoogleAIProviderConfig doesn't have RetryDelay field yet
-			_ = v // Silently ignore for now
+			googleConfig.RetryDelay = time.Duration(v) * time.Second
 		case float64:
-			_ = int(v) // Silently ignore for now
+			googleConfig.RetryDelay = time.Duration(v) * time.Second
 		case float32:
-			_ = int(v) // Silently ignore for now
+			googleConfig.RetryDelay = time.Duration(v) * time.Second
+		case string:
+			if d, err := time.ParseDuration(v); err == nil {
+				googleConfig.RetryDelay = d
+			} else {
+				return errbuilder.New().
+					WithMsg("Invalid retry_delay format").
+					WithCode(errbuilder.CodeInvalidArgument).
+					WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
+						"expected_type": fmt.Errorf("int/float/string (e.g., '5s')"),
+						"actual_type":   fmt.Errorf("%T", retryDelayVal),
+						"value":         fmt.Errorf("%v", retryDelayVal),
+					}))
+			}
 		default:
 			return errbuilder.New().
 				WithMsg("Invalid retry_delay type").
 				WithCode(errbuilder.CodeInvalidArgument).
 				WithDetails(errbuilder.NewErrDetails(errbuilder.ErrorMap{
-					"expected_type": fmt.Errorf("int/float64/float32"),
+					"expected_type": fmt.Errorf("int/float/string"),
 					"actual_type":   fmt.Errorf("%T", retryDelayVal),
 					"value":         fmt.Errorf("%v", retryDelayVal),
 				}))
